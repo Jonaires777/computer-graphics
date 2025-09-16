@@ -3,6 +3,12 @@
 #include <GLFW/glfw3.h>
 #include <openglDebug.h>
 #include <demoShaderLoader.h>
+#include <Eigen/Dense>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include "model/Point.h"
+#include "model/Ray.h"
+#include "model/Sphere.h"
 #include <iostream>
 
 
@@ -38,7 +44,7 @@ int main(void)
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //you might want to do this when testing the game for shipping
 
 
-	GLFWwindow *window = window = glfwCreateWindow(640, 480, "Simple example", NULL, NULL);
+	GLFWwindow *window = window = glfwCreateWindow(1280, 720, "Sphere", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -66,22 +72,38 @@ int main(void)
 
 	while (!glfwWindowShouldClose(window))
 	{
-		int width = 0, height = 0;
+		int wJanela = 1280;  
+		int hJanela = 720;
+		float dJanela = 5.0f;
+		int nCol = 1280, nLin = 720;
+		float rEsfera = 6000.0f;
 
-		glfwGetFramebufferSize(window, &width, &height);
-		glViewport(0, 0, width, height);
+		Sphere sphere(Point(0.0f, 0.0f, -(dJanela + rEsfera), 1.0f), rEsfera);
+
+		float Dx = wJanela / (float)nCol;
+		float Dy = hJanela / (float)nLin;
+
+		glfwGetFramebufferSize(window, &wJanela, &hJanela);
+		glViewport(0, 0, wJanela, hJanela);
+		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-
-		//I'm using the old pipeline here just to test, you shouldn't learn this,
-		//Also It might not work on apple
-		glBegin(GL_TRIANGLES);
-		glColor3f(1, 0, 0);
-		glVertex2f(0,1);
-		glColor3f(0, 1, 0);
-		glVertex2f(1,-1);
-		glColor3f(0, 0, 1);
-		glVertex2f(-1,-1);
-		glEnd();
+		
+		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
+		
+		float z = -dJanela;
+		for (int l = 0; l < nLin; l++) {
+			float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
+			for (int c = 0; c < nCol; c++) {
+				float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
+				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
+				if (sphere.intersects(ray)) {
+					glColor3f(1.0f, 0.0f, 0.0f);
+					glBegin(GL_POINTS);
+					glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
+					glEnd();
+				}
+			}
+		}
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
