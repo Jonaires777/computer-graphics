@@ -11,4 +11,9 @@ struct Ray
 		this->origin = origin;
 		this->direction = glm::normalize(direction);
 	}
+
+	Ray(const Point& origin, const Point& endPoint) {
+		this->origin = origin;
+		this->direction = glm::normalize(endPoint.position - origin.position);
+	}
 };

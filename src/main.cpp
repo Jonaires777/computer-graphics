@@ -13,6 +13,9 @@
 #include <iostream>
 
 
+#define MAX_HEIGHT 500
+#define MAX_WIDHT 500
+
 #define USE_GPU_ENGINE 0
 extern "C"
 {
@@ -45,7 +48,7 @@ int main(void)
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //you might want to do this when testing the game for shipping
 
 
-	GLFWwindow *window = window = glfwCreateWindow(1280, 720, "Sphere", NULL, NULL);
+	GLFWwindow *window = window = glfwCreateWindow(MAX_HEIGHT, MAX_WIDHT, "Sphere", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -71,33 +74,37 @@ int main(void)
 	s.loadShaderProgramFromFile(RESOURCES_PATH "vertex.vert", RESOURCES_PATH "fragment.frag");
 	s.bind();
 
+	GLint pixelColorLocation = glGetUniformLocation(s.id, "u_PixelColor");
+
 	while (!glfwWindowShouldClose(window))
 	{
-		int wJanela = 1280;  
-		int hJanela = 720;
+		int wJanela = 2;
+		int hJanela = 2;
 		float dJanela = 5.0f;
-		int nCol = 1280, nLin = 720;
-		float rEsfera = 6000.0f;
+		int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
+		float rEsfera = 1.0f;
 		
 		Sphere sphere(Point(0.0f, 0.0f, -(dJanela + rEsfera), 1.0f), rEsfera);
 
 		// material properties
-		sphere.K_diffuse = glm::vec3(0.8f, 0.1f, 0.1f); 
-		sphere.K_specular = glm::vec3(0.8f, 0.8f, 0.8f);  
-		sphere.K_ambient = glm::vec3(0.2f, 0.05f, 0.05f);
-		sphere.shininess = 16.0f;                        
+		sphere.K_ambient = glm::vec3(0.05f, 0.01f, 0.01f);
+		sphere.K_diffuse = glm::vec3(0.8f, 0.1f, 0.1f);
+		sphere.K_specular = glm::vec3(0.2f, 0.2f, 0.2f);
+		sphere.shininess = 8.0f;
 
 		float Dx = wJanela / (float)nCol;
 		float Dy = hJanela / (float)nLin;
 
-		glfwGetFramebufferSize(window, &wJanela, &hJanela);
-		glViewport(0, 0, wJanela, hJanela);
+		glViewport(0, 0, 500, 500);
 		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		
-		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 5.0f, 0.0f, 1.0f));
+		LightSource light(glm::vec3(1.0f, 1.0f, 1.0f), Point(0.0f, 3.0f, -dJanela, 1.0f));
+
 		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
 		
+		s.bind();
+
 		float z = -dJanela;
 		for (int l = 0; l < nLin; l++) {
 			float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
@@ -106,7 +113,7 @@ int main(void)
 				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
 				glm::vec3 color;
 				if (sphere.shade(ray, light, color)) {
-					glColor3f(color.r, color.g, color.b);
+					glUniform3f(pixelColorLocation, color.r, color.g, color.b);
 					glBegin(GL_POINTS);
 					glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
 					glEnd();
