@@ -8,7 +8,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "model/Point.h"
 #include "model/Ray.h"
-#include "model/Sphere.h"
+#include "model/LightSource.h"
+#include "model/Objects/Sphere.h"
 #include <iostream>
 
 
@@ -77,8 +78,14 @@ int main(void)
 		float dJanela = 5.0f;
 		int nCol = 1280, nLin = 720;
 		float rEsfera = 6000.0f;
-
+		
 		Sphere sphere(Point(0.0f, 0.0f, -(dJanela + rEsfera), 1.0f), rEsfera);
+
+		// material properties
+		sphere.K_diffuse = glm::vec3(0.8f, 0.1f, 0.1f); 
+		sphere.K_specular = glm::vec3(0.8f, 0.8f, 0.8f);  
+		sphere.K_ambient = glm::vec3(0.2f, 0.05f, 0.05f);
+		sphere.shininess = 16.0f;                        
 
 		float Dx = wJanela / (float)nCol;
 		float Dy = hJanela / (float)nLin;
@@ -88,6 +95,7 @@ int main(void)
 		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		
+		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 5.0f, 0.0f, 1.0f));
 		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
 		
 		float z = -dJanela;
@@ -96,8 +104,9 @@ int main(void)
 			for (int c = 0; c < nCol; c++) {
 				float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
 				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
-				if (sphere.intersects(ray)) {
-					glColor3f(1.0f, 0.0f, 0.0f);
+				glm::vec3 color;
+				if (sphere.shade(ray, light, color)) {
+					glColor3f(color.r, color.g, color.b);
 					glBegin(GL_POINTS);
 					glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
 					glEnd();
