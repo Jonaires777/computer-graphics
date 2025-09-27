@@ -127,7 +127,7 @@ int main(void)
 				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
 
 				float t_min = FLT_MAX;
-				int object_id = -1; // -1: Nenhum, 0: sphere, 1: floor, 2: background
+				int object_id = -1; // -1: none, 0: sphere, 1: floor, 2: background
 				glm::vec3 color(0.0f, 0.0f, 0.0f);
 
 				float t_sphere;
