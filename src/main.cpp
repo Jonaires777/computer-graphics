@@ -10,6 +10,7 @@
 #include "model/Ray.h"
 #include "model/LightSource.h"
 #include "model/Objects/Sphere.h"
+#include "model/Objects/Plane.h"
 #include <iostream>
 
 
@@ -78,19 +79,36 @@ int main(void)
 
 	while (!glfwWindowShouldClose(window))
 	{
-		int wJanela = 2;
-		int hJanela = 2;
-		float dJanela = 5.0f;
+		float wJanela = 0.6f;
+		float hJanela = 0.6f;
+		float dJanela = 0.3f;
 		int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
-		float rEsfera = 1.0f;
 		
-		Sphere sphere(Point(0.0f, 0.0f, -(dJanela + rEsfera), 1.0f), rEsfera);
+		// sphere definition
+		float rEsfera = 0.4f;
+		Sphere sphere(Point(0.0f, 0.0f, -1.0f, 1.0f), rEsfera);
+		sphere.K_ambient = glm::vec3(0.7f, 0.2f, 0.2f);
+		sphere.K_diffuse = glm::vec3(0.7f, 0.2f, 0.2f);
+		sphere.K_specular = glm::vec3(0.7f, 0.2f, 0.2f);
+		sphere.shininess = 10.0f;
 
-		// material properties
-		sphere.K_ambient = glm::vec3(0.05f, 0.01f, 0.01f);
-		sphere.K_diffuse = glm::vec3(0.8f, 0.1f, 0.1f);
-		sphere.K_specular = glm::vec3(0.2f, 0.2f, 0.2f);
-		sphere.shininess = 8.0f;
+		// planes definitions
+		Plane floor(Point(0.0f, -rEsfera, 0.0f, 1.0f), glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+		floor.K_ambient = glm::vec3(0.2f, 0.7f, 0.2f);
+		floor.K_diffuse = glm::vec3(0.2f, 0.7f, 0.2f);
+		floor.K_specular = glm::vec3(0.0f, 0.0f, 0.0f);
+		floor.shininess = 1.0f;
+
+		Plane background(Point(0.0f, 0.0f, -2.0f, 1.0f), glm::vec4(0.0f, 0.0f, 1.0f, 0.0f));
+		background.K_ambient = glm::vec3(0.3f, 0.3f, 0.7f);
+		background.K_diffuse = glm::vec3(0.3f, 0.3f, 0.7f);
+		background.K_specular = glm::vec3(0.0f, 0.0f, 0.0f);
+		background.shininess = 1.0f;
+
+		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 0.6f, -0.3f, 1.0f));
+		glm::vec3 I_A = glm::vec3(0.3f, 0.3f, 0.3f);
+
+		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
 
 		float Dx = wJanela / (float)nCol;
 		float Dy = hJanela / (float)nLin;
@@ -98,10 +116,6 @@ int main(void)
 		glViewport(0, 0, 500, 500);
 		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		
-		LightSource light(glm::vec3(1.0f, 1.0f, 1.0f), Point(0.0f, 3.0f, -dJanela, 1.0f));
-
-		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
 		
 		s.bind();
 
@@ -111,13 +125,59 @@ int main(void)
 			for (int c = 0; c < nCol; c++) {
 				float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
 				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
-				glm::vec3 color;
-				if (sphere.shade(ray, light, color)) {
-					glUniform3f(pixelColorLocation, color.r, color.g, color.b);
-					glBegin(GL_POINTS);
-					glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
-					glEnd();
+
+				float t_min = FLT_MAX;
+				int object_id = -1; // -1: Nenhum, 0: sphere, 1: floor, 2: background
+				glm::vec3 color(0.0f, 0.0f, 0.0f);
+
+				float t_sphere;
+				float t_floor;
+				float t_background;
+
+				if (sphere.intersect(ray, t_sphere) && t_sphere < t_min) {
+					t_min = t_sphere;
+					object_id = 0;
 				}
+
+				if (floor.intersect(ray, t_floor) && t_floor < t_min) {
+					t_min = t_floor;
+					object_id = 1;
+				}
+
+				if (background.intersect(ray, t_background) && t_background < t_min) {
+					t_min = t_background;
+					object_id = 2;
+				}
+
+				if (object_id != -1) {
+					glm::vec3 Pi = glm::vec3(eye.position) + t_min * glm::normalize(glm::vec3(ray.direction));
+
+					glm::vec3 n;
+					if (object_id == 0) {
+						n = glm::normalize(Pi - glm::vec3(sphere.center.position));
+						
+						sphere.shade(Pi, n, ray, light, I_A, color);
+
+					}
+					else if (object_id == 1) {
+						n = glm::normalize(glm::vec3(floor.normal_n));
+						floor.shade(Pi, ray, light, I_A, sphere, color);
+
+					}
+					else if (object_id == 2) {
+						n = glm::normalize(glm::vec3(background.normal_n));
+						background.shade(Pi, ray, light, I_A, sphere, color);
+					}
+				}
+				else {
+					color = I_A;
+				}
+
+				glUniform3f(pixelColorLocation, color.r, color.g, color.b);
+				glBegin(GL_POINTS);
+
+				glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
+				glEnd();
 			}
 		}
 

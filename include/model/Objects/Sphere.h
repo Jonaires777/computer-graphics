@@ -20,5 +20,7 @@ struct Sphere
 		K_specular(glm::vec3(1.0f)), shininess(32.0f)
 	{}
 
-	bool shade(const Ray& ray, const LightSource& light, glm::vec3& outColor) const;
+	bool intersect(const Ray& ray, float& t_out) const;
+
+	bool shade(const glm::vec3& Pi, const glm::vec3& n, const Ray& ray, const LightSource& light, glm::vec3& I_A, glm::vec3& outColor) const;
 };
