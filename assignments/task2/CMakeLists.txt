@@ -1,0 +1,32 @@
+# assignments/task2/CMakeLists.txt
+
+add_executable(task2 main.cpp 
+    "${CMAKE_SOURCE_DIR}/src/demoShaderLoader.cpp"
+    "${CMAKE_SOURCE_DIR}/src/openglDebug.cpp"
+    "${CMAKE_SOURCE_DIR}/include/model/Point.h"
+    "${CMAKE_SOURCE_DIR}/include/model/Ray.h"
+    "${CMAKE_SOURCE_DIR}/include/model/LightSource.h"
+    "${CMAKE_SOURCE_DIR}/include/model/Objects/Sphere.cpp"
+    "${CMAKE_SOURCE_DIR}/include/model/Objects/Plane.cpp"
+)
+
+set_property(TARGET task2 PROPERTY CXX_STANDARD 17)
+
+target_include_directories(task2 PUBLIC
+    "${CMAKE_SOURCE_DIR}/include"
+)
+
+target_compile_definitions(task2 PUBLIC
+    RESOURCES_PATH="${CMAKE_SOURCE_DIR}/resources/"
+)
+
+target_link_libraries(task2 PRIVATE
+    glm glfw glad stb_image stb_truetype imgui Eigen3::Eigen
+)
+
+
+if(MSVC)
+    target_compile_definitions(task2 PUBLIC _CRT_SECURE_NO_WARNINGS)
+    set_property(TARGET task2 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDebug<$<CONFIG:Debug>:Debug>")
+    set_property(TARGET task2 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Release>:Release>")
+endif()
