@@ -84,15 +84,15 @@ int main(void)
 		float dJanela = 5.0f;
 		int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
 
-		float rEsfera = 0.4f;
+		float rEsfera = 0.8f;
 		Sphere sphere(Point(0.0f, 0.0f, -dJanela, 1.0f), rEsfera);
-		sphere.K_ambient = glm::vec3(0.7f, 0.2f, 0.2f);
-		sphere.K_diffuse = glm::vec3(0.7f, 0.2f, 0.2f);
-		sphere.K_specular = glm::vec3(0.7f, 0.2f, 0.2f);
-		sphere.shininess = 1.0f;
+		sphere.K_ambient = glm::vec3(0.9f, 0.2f, 0.2f);
+		sphere.K_diffuse = glm::vec3(0.9f, 0.2f, 0.2f);
+		sphere.K_specular = glm::vec3(0.9f, 0.2f, 0.2f);
+		sphere.shininess = 10.0f;
 
 		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 5.0f, 0.0f, 1.0f));
-		glm::vec3 I_A = glm::vec3(0.3f, 0.3f, 0.3f);
+		glm::vec3 I_A = glm::vec3(0.0f, 0.0f, 0.0f);
 
 		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
 
