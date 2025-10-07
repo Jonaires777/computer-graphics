@@ -1,26 +1,23 @@
 #pragma once
-#include <glm/glm.hpp>
-#include "model/Point.h"
-#include "model/LightSource.h"
+#include "model/Objects/Object.h"
 #include "model/Ray.h"
+#include "model/Point.h"
+#include <glm/glm.hpp>
 
-struct Sphere
+struct Sphere : public Object
 {
 	Point center;
 	float radius;
 
-	glm::vec3 K_ambient;   // Ka
-	glm::vec3 K_diffuse;   // Kd
-	glm::vec3 K_specular;  // Ks
-	float shininess;       // m
+    Sphere(
+        const Point& c = {},
+        float r = 1.0f,
+        const glm::vec3& Ka = glm::vec3(0.1f),
+        const glm::vec3& Kd = glm::vec3(0.6f),
+        const glm::vec3& Ks = glm::vec3(1.0f),
+        float shin = 32.0f
+    );
 
-	Sphere(const Point& c = {}, float r = 1.0f)
-		: center(c), radius(r),
-		K_ambient(glm::vec3(0.1f)), K_diffuse(glm::vec3(1.0f, 0.0f, 0.0f)),
-		K_specular(glm::vec3(1.0f)), shininess(32.0f)
-	{}
-
-	bool intersect(const Ray& ray, float& t_out) const;
-
-	bool shade(const glm::vec3& Pi, const glm::vec3& n, const Ray& ray, const LightSource& light, glm::vec3& I_A, glm::vec3& outColor) const;
+	bool intersect(const Ray& ray, float& t_out) const override;
+    glm::vec3 getNormal(const glm::vec3& Pi) const override;
 };

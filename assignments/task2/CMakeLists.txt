@@ -7,7 +7,7 @@ add_executable(task2 main.cpp
     "${CMAKE_SOURCE_DIR}/include/model/Ray.h"
     "${CMAKE_SOURCE_DIR}/include/model/LightSource.h"
     "${CMAKE_SOURCE_DIR}/include/model/Objects/Sphere.cpp"
-    "${CMAKE_SOURCE_DIR}/include/model/Objects/Plane.cpp"
+    "${CMAKE_SOURCE_DIR}/include/operations/Shading.cpp"
 )
 
 set_property(TARGET task2 PROPERTY CXX_STANDARD 17)

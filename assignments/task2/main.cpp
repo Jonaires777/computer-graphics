@@ -10,7 +10,8 @@
 #include "model/Ray.h"
 #include "model/LightSource.h"
 #include "model/Objects/Sphere.h"
-#include "model/Objects/Plane.h"
+#include "model/Objects/Object.h"
+#include "operations/Shading.h"
 #include <iostream>
 
 
@@ -82,14 +83,18 @@ int main(void)
 		float wJanela = 2.0f;
 		float hJanela = 2.0f;
 		float dJanela = 5.0f;
+		float rEsfera = 1.0f;
 		int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
 
-		float rEsfera = 0.8f;
-		Sphere sphere(Point(0.0f, 0.0f, -dJanela, 1.0f), rEsfera);
-		sphere.K_ambient = glm::vec3(0.9f, 0.2f, 0.2f);
-		sphere.K_diffuse = glm::vec3(0.9f, 0.2f, 0.2f);
-		sphere.K_specular = glm::vec3(0.9f, 0.2f, 0.2f);
-		sphere.shininess = 10.0f;
+		std::vector<std::unique_ptr<Object>> sceneObjects;
+		sceneObjects.push_back(std::make_unique<Sphere>(
+			Point(0.0f, 0.0f, -(dJanela + rEsfera), 1.0f), 
+			1.0f,
+			glm::vec3(0.8, 0.2f, 0.2f), 
+			glm::vec3(0.8f, 0.2f, 0.2f), 
+			glm::vec3(0.8f, 0.2f, 0.2f), 
+			10.0f)
+		);
 
 		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 5.0f, 0.0f, 1.0f));
 		glm::vec3 I_A = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -112,16 +117,18 @@ int main(void)
 				float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
 				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
 
+				float t_out;
 				glm::vec3 color(0.39f, 0.39f, 0.39f);
 
-				float t_out;
-
-				if (sphere.intersect(ray, t_out)) {
-					glm::vec3 Pi = glm::vec3(eye.position) + t_out * glm::normalize(glm::vec3(ray.direction));
-					glm::vec3 n = glm::normalize(Pi - glm::vec3(sphere.center.position));
-					sphere.shade(Pi, n, ray, light, I_A, color);
+				for (auto& obj : sceneObjects) {
+					if (obj->intersect(ray, t_out)) {
+						glm::vec3 Pi = glm::vec3(ray.origin.position) + t_out * glm::vec3(ray.direction);
+						glm::vec3 n = obj->getNormal(Pi);
+						color = shade(Pi, n, ray, light, I_A, *obj, sceneObjects);
+						break;
+					}
 				}
-				
+
 				glUniform3f(pixelColorLocation, color.r, color.g, color.b);
 				glBegin(GL_POINTS);
 

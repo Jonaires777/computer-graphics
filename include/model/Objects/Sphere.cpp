@@ -1,10 +1,23 @@
 ﻿#include "model/Objects/Sphere.h"
-#include "operations/Operations.h"
-#include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
-#include <algorithm>
 #include <cmath>
 #include <iostream>
+
+Sphere::Sphere(
+    const Point& c, 
+    float r, 
+    const glm::vec3& Ka,
+    const glm::vec3& Kd,
+    const glm::vec3& Ks,
+    float shin
+)
+    : center(c), radius(r)
+{
+    K_ambient = Ka;
+    K_diffuse = Kd;
+    K_specular = Ks;
+    shininess = shin;
+}
 
 bool Sphere::intersect(const Ray& ray, float& t_out) const {
     glm::vec3 O = glm::vec3(ray.origin.position);
@@ -30,39 +43,6 @@ bool Sphere::intersect(const Ray& ray, float& t_out) const {
     return t_out > 0;
 }
 
-bool Sphere::shade(const glm::vec3& Pi, const glm::vec3& n, const Ray& ray, const LightSource& light, glm::vec3& I_A, glm::vec3& outColor) const {
-    using namespace Operations;
-
-    // Vetores necessários para o cálculo de iluminação
-    glm::vec3 Pf = glm::vec3(light.position.position);
-
-    // Vetor da luz (l)
-    glm::vec3 l = glm::normalize(Pf - Pi);
-
-    // Vetor da visão (v)
-    glm::vec3 D = glm::vec3(ray.direction);
-    glm::vec3 v = glm::normalize(-D);
-
-    // Vetor de reflexão (r)
-    glm::vec3 r = glm::normalize(2 * glm::dot(n, l) * n - l);
-
-    // Intensidades e coeficientes de refletividade
-    glm::vec3 I_F = light.intensity;
-
-    // Contribuição da luz ambiente
-    glm::vec3 I_ambient = compMul(I_A, K_ambient);
-
-    // Contribuição difusa
-    float ln = glm::max(0.0f, glm::dot(l, n));
-    glm::vec3 I_diff = compMul(I_F, K_diffuse) * ln;
-
-    // Contribuição especular
-    float vr = glm::max(0.0f, glm::dot(v, r));
-    glm::vec3 I_spec = compMul(I_F, K_specular) * std::pow(vr, shininess);
-
-    // Cor final
-    glm::vec3 I_total = I_ambient + I_diff + I_spec;
-    outColor = glm::clamp(I_total, glm::vec3(0.0f), glm::vec3(1.0f));
-
-    return true;
+glm::vec3 Sphere::getNormal(const glm::vec3& Pi) const {
+    return glm::normalize(Pi - glm::vec3(center.position));
 }
