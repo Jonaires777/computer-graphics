@@ -54,3 +54,5 @@ target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE Eigen3::Eigen)
 add_subdirectory(assignments/task2)
 
 add_subdirectory(assignments/task3)
+
+add_subdirectory(assignments/task4)
