@@ -38,5 +38,5 @@ struct Cone : public Object
 	Cone(const Point& baseCenter, const Point& vertex, float baseRadius, bool vertexAsApex, bool hasBase = true);
 
 	bool intersect(const Ray& ray, float& t_out) const override;
-	glm::vec3 getNormal(const glm::vec3& Pi) const override;
+	glm::vec3 getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const override;
 };

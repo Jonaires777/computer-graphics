@@ -19,5 +19,5 @@ struct Plane : public Object
     );
 
     bool intersect(const Ray& ray, float& t_out) const override;
-    glm::vec3 getNormal(const glm::vec3& Pi) const override;
+    glm::vec3 getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const override;
 };

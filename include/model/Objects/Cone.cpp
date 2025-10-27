@@ -64,77 +64,86 @@ Cone::Cone(const Point& baseCenter, const Point& vertex, float baseRadius, bool 
 
 bool Cone::intersect(const Ray& ray, float& t_out) const
 {
-	glm::vec3 dc = glm::vec3(glm::normalize(direction));
-	glm::vec3 dr = glm::normalize(glm::vec3(ray.direction)); 
-	glm::vec3 w = glm::vec3(ray.origin.position) - glm::vec3(baseCenter.position);
+	glm::vec3 dc = glm::normalize(glm::vec3(direction));
+	glm::vec3 ro = glm::vec3(ray.origin.position);
+	glm::vec3 rd = glm::normalize(glm::vec3(ray.direction));
 
-	float k = (height / baseRadius);
-	k = k * k;
+	// Define ápice do cone
+	glm::vec3 apex = glm::vec3(baseCenter.position) + dc * height;
 
-	float dr_dot_dc = glm::dot(dr, dc);
-	float w_dot_dc = glm::dot(w, dc);
+	// Vetores auxiliares
+	glm::vec3 co = ro - apex;
 
-	float a = glm::dot(dr, dr) - (1 + k) * dr_dot_dc * dr_dot_dc;
-	float b = 2 * (glm::dot(dr, w) - (1 + k) * dr_dot_dc * w_dot_dc + height * k * dr_dot_dc);
-	float c = glm::dot(w, w) - (1 + k) * w_dot_dc * w_dot_dc + 2 * height * k * w_dot_dc - height * height * k;
+	float k = baseRadius / height;
+	float k2 = k * k;
+
+	float dc_rd = glm::dot(rd, dc);
+	float dc_co = glm::dot(co, dc);
+
+	float a = glm::dot(rd, rd) - (1 + k2) * dc_rd * dc_rd;
+	float b = 2.0f * (glm::dot(rd, co) - (1 + k2) * dc_rd * dc_co);
+	float c = glm::dot(co, co) - (1 + k2) * dc_co * dc_co;
 
 	float delta = b * b - 4 * a * c;
 
+	if (delta < 0.0f) return false;
+
+	float sqrtDelta = std::sqrt(delta);
+	float t1 = (-b - sqrtDelta) / (2.0f * a);
+	float t2 = (-b + sqrtDelta) / (2.0f * a);
+
 	float t_cone = std::numeric_limits<float>::infinity();
 
-	if (delta >= 0.0f)
+	const float epsilon = 1e-4f;
+
+	if (t1 > epsilon) t_cone = t1;
+	if (t2 > epsilon && t2 < t_cone) t_cone = t2;
+
+	if (t_cone < std::numeric_limits<float>::infinity())
 	{
-		float sqrtDelta = std::sqrt(delta);
-		float t1 = (-b - sqrtDelta) / (2.0f * a);
-		float t2 = (-b + sqrtDelta) / (2.0f * a);
+		glm::vec3 Pi = ro + t_cone * rd;
+		float h = glm::dot(Pi - glm::vec3(baseCenter.position), dc);
 
-		if (t1 > 0.0f) t_cone = t1;
-		if (t2 > 0.0f && t2 < t_cone) t_cone = t2;
-
-		if (t_cone < std::numeric_limits<float>::infinity())
-		{
-			glm::vec3 Pi = glm::vec3(ray.origin.position) + t_cone * dr;
-			float proj = glm::dot(Pi - glm::vec3(baseCenter.position), dc);
-
-			if (proj < 0.0f || proj > height)
-				t_cone = std::numeric_limits<float>::infinity();
-		}
+		if (h < -epsilon || h > height + epsilon)
+			t_cone = std::numeric_limits<float>::infinity();
 	}
 
 	float t_base = std::numeric_limits<float>::infinity();
+	lastHitPart = 0;
 
 	if (hasBase)
 	{
-		float denom = glm::dot(dr, dc);
+		float denom = glm::dot(rd, dc);
 		if (std::abs(denom) > 1e-6f)
 		{
-			float t = glm::dot(glm::vec3(baseCenter.position) - glm::vec3(ray.origin.position), dc) / denom;
-			if (t > 0.0f)
+			float t = glm::dot(glm::vec3(baseCenter.position) - ro, dc) / denom;
+			if (t > epsilon)
 			{
-				glm::vec3 Pi = glm::vec3(ray.origin.position) + t * dr;
-				float dist = glm::length(Pi - glm::vec3(baseCenter.position));
+				glm::vec3 P = ro + t * rd;
+				float dist = glm::length(P - glm::vec3(baseCenter.position));
 				if (dist <= baseRadius)
+				{
 					t_base = t;
+				}
 			}
+		}
+
+		if (t_base < t_cone)
+		{
+			t_cone = t_base;
+			lastHitPart = 1;
 		}
 	}
 
-	t_out = t_cone;
-	lastHitPart = 0;
-
-	if (t_base < t_out)
-	{
-		t_out = t_base;
-		lastHitPart = 1;
-	}
-
-	if (t_out == std::numeric_limits<float>::infinity())
+	if (t_cone == std::numeric_limits<float>::infinity())
 		return false;
 
+	t_out = t_cone;
 	return true;
 }
 
-glm::vec3 Cone::getNormal(const glm::vec3& Pi) const
+
+glm::vec3 Cone::getNormal(const glm::vec3& Pi, const glm::vec3& viewDir) const
 {
 	glm::vec3 dc = glm::normalize(glm::vec3(direction));
 	glm::vec3 pc = glm::vec3(baseCenter.position);
@@ -144,14 +153,12 @@ glm::vec3 Cone::getNormal(const glm::vec3& Pi) const
 
 	glm::vec3 apex = pc + dc * height;
 	glm::vec3 v = Pi - apex;
+	glm::vec3 v_proj = glm::dot(v, dc) * dc;
 
-	float proj = glm::dot(v, dc);
-	glm::vec3 projPoint = apex + proj * dc;
+	glm::vec3 n = glm::normalize((v_proj - v) * (height / baseRadius));
 
-	glm::vec3 normal = glm::normalize(Pi - projPoint);
+	if (glm::dot(n, viewDir) > 0.0f)
+		n = -n;
 
-	float sinTheta = baseRadius / glm::sqrt(height * height + baseRadius * baseRadius);
-	glm::vec3 adjustedNormal = glm::normalize(normal * (1.0f - sinTheta));
-
-	return adjustedNormal;
+	return n;
 }

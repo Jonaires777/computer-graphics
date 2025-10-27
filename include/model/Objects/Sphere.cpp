@@ -43,6 +43,9 @@ bool Sphere::intersect(const Ray& ray, float& t_out) const {
     return t_out > 0;
 }
 
-glm::vec3 Sphere::getNormal(const glm::vec3& Pi) const {
-    return glm::normalize(Pi - glm::vec3(center.position));
+glm::vec3 Sphere::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
+    glm::vec3 normal = glm::normalize(Pi - glm::vec3(center.position));
+    if (glm::dot(normal, rayDir) > 0.0f)
+        normal = -normal;
+    return normal;
 }

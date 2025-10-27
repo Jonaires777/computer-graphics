@@ -15,6 +15,6 @@ struct Object
 	}
 
 	virtual bool intersect(const struct Ray& ray, float& t_out) const = 0;
-	virtual glm::vec3 getNormal(const glm::vec3& point) const = 0;
+	virtual glm::vec3 getNormal(const glm::vec3& point, const glm::vec3& rayDir) const = 0;
 	virtual ~Object() = default;
 };

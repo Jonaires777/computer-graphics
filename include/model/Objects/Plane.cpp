@@ -35,7 +35,9 @@ bool Plane::intersect(const Ray& ray, float& t_out) const
     return t_out > 1e-4f;
 }
 
-glm::vec3 Plane::getNormal(const glm::vec3& Pi) const
-{
-    return glm::normalize(glm::vec3(normal_n));
+glm::vec3 Plane::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
+    glm::vec3 normal = glm::normalize(glm::vec3(normal_n));
+    if (glm::dot(normal, rayDir) > 0.0f)
+        normal = -normal;
+    return normal;
 }
