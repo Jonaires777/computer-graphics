@@ -123,7 +123,7 @@ int main(void)
 				for (auto& obj : sceneObjects) {
 					if (obj->intersect(ray, t_out)) {
 						glm::vec3 Pi = glm::vec3(ray.origin.position) + t_out * glm::vec3(ray.direction);
-						glm::vec3 n = obj->getNormal(Pi);
+						glm::vec3 n = obj->getNormal(Pi, glm::normalize(glm::vec3(ray.direction)));
 						color = shade(Pi, n, ray, light, I_A, *obj, sceneObjects);
 						break;
 					}

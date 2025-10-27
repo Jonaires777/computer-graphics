@@ -145,7 +145,7 @@ int main(void)
 
 				if (hitObject) {
 					glm::vec3 Pi = glm::vec3(eye.position) + t_min * glm::normalize(glm::vec3(ray.direction));
-					glm::vec3 n = hitObject->getNormal(Pi);
+					glm::vec3 n = hitObject->getNormal(Pi, glm::normalize(glm::vec3(ray.direction)));
 					color = shade(Pi, n, ray, light, I_A, *hitObject, objects);
 				}
 				else {

@@ -11,6 +11,8 @@
 #include "model/LightSource.h"
 #include "model/Objects/Sphere.h"
 #include "model/Objects/Plane.h"
+#include "model/Objects/Cilinder.h"
+#include "model/Objects/Cone.h"
 #include "operations/Shading.h"
 #include "model/Objects/Object.h"
 #include <iostream>
@@ -27,7 +29,7 @@ extern "C"
 }
 
 
-static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -51,7 +53,7 @@ int main(void)
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //you might want to do this when testing the game for shipping
 
 
-	GLFWwindow *window = window = glfwCreateWindow(MAX_HEIGHT, MAX_WIDHT, "Sphere", NULL, NULL);
+	GLFWwindow* window = window = glfwCreateWindow(MAX_HEIGHT, MAX_WIDHT, "GAME", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -79,90 +81,147 @@ int main(void)
 
 	GLint pixelColorLocation = glGetUniformLocation(s.id, "u_PixelColor");
 
-	while (!glfwWindowShouldClose(window))
-	{
-		float wJanela = 0.6f;
-		float hJanela = 0.6f;
-		float dJanela = 0.3f;
-		int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
-		
-		// scene definition
-		std::vector<std::unique_ptr<Object>> objects;
-		objects.push_back(std::make_unique<Sphere>(
-			Point(0.0f, 0.0f, -1.0f, 1.0f), 
-			0.4f,
-			glm::vec3(0.7f, 0.2f, 0.2f),
-			glm::vec3(0.7f, 0.2f, 0.2f), 
-			glm::vec3(0.7f, 0.2f, 0.2f), 
-			10.0f));
-		objects.push_back(std::make_unique<Plane>(
-			Point(0.0f, -0.4f, 0.0f, 1.0f), 
-			glm::vec4(0, 1, 0, 0),
-			glm::vec3(0.2f, 0.7f, 0.2f),
-			glm::vec3(0.2f, 0.7f, 0.2f),
-			glm::vec3(0.0f, 0.0f, 0.0f),
-			1.0f));
-		objects.push_back(std::make_unique<Plane>(
-			Point(0.0f, 0.0f, -2.0f, 1.0f), 
-			glm::vec4(0, 0, 1, 0),
-			glm::vec3(0.3f, 0.3f, 0.7f),
-			glm::vec3(0.3f, 0.3f, 0.7f),
-			glm::vec3(0.0f, 0.0f, 0.0f),
-			1.0f));
+    while (!glfwWindowShouldClose(window))
+    {
+            float wJanela = 0.6f;
+            float hJanela = 0.6f;
+        float dJanela = 0.3f;
+        int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
 
-		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 0.6f, -0.3f, 1.0f));
-		glm::vec3 I_A = glm::vec3(0.3f, 0.3f, 0.3f);
+        std::vector<std::unique_ptr<Object>> objects;
 
-		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
+		// background
+        objects.push_back(std::make_unique<Plane>(
+            Point(0.0f, 0.0f, -2.0f, 1.0f),
+            glm::vec4(0, 0, 1, 0),
+            glm::vec3(0.3f, 0.3f, 0.7f),
+            glm::vec3(0.3f, 0.3f, 0.7f),
+            glm::vec3(0.0f),
+            1.0f));
 
-		float Dx = wJanela / (float)nCol;
-		float Dy = hJanela / (float)nLin;
+        // floor
+        objects.push_back(std::make_unique<Plane>(
+            Point(0.0f, -0.4f, -1.0f, 1.0f),
+            glm::vec4(0, 1, 0, 0),
+            glm::vec3(0.2f, 0.7f, 0.2f),
+            glm::vec3(0.2f, 0.7f, 0.2f),
+            glm::vec3(0.0f),
+            1.0f));
 
-		glViewport(0, 0, 500, 500);
-		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		
-		s.bind();
+        // Cabeça
+        float headRadius = 0.4f;
+        Point headCenter(0.0f, 0.0f, -1.3f, 1.0f);
+        glm::vec3 headColor(0.9f, 0.8f, 0.6f);
 
-		float z = -dJanela;
-		for (int l = 0; l < nLin; l++) {
-			float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
-			for (int c = 0; c < nCol; c++) {
-				float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
-				Ray ray(eye, glm::vec4(x, y, z, 0.0f));
+        objects.push_back(std::make_unique<Sphere>(
+            headCenter,
+            headRadius,
+            headColor, headColor, headColor, 10.0f));
 
-				glm::vec3 color(0.0f);
-				float t_min = FLT_MAX;
-				Object* hitObject = nullptr;
+        // eyes
+        float eyeRadius = 0.05f;
+        float eyeOffsetY = 0.10f;      
+        float eyeOffsetX = 0.13f;       
+        float eyeOffsetZ = -0.9f;
+        glm::vec3 eyeColor(0.0f, 0.0f, 0.0f);
 
-				for (auto& obj : objects) {
-					float t;
-					if (obj->intersect(ray, t) && t < t_min) {
-						t_min = t;
-						hitObject = obj.get();
-					}
-				}
+        Point leftEye(-eyeOffsetX, eyeOffsetY, eyeOffsetZ, 1.0f);
+        Point rightEye(eyeOffsetX, eyeOffsetY, eyeOffsetZ, 1.0f);
 
-				if (hitObject) {
-					glm::vec3 Pi = glm::vec3(eye.position) + t_min * glm::normalize(glm::vec3(ray.direction));
-					glm::vec3 n = hitObject->getNormal(Pi);
-					color = shade(Pi, n, ray, light, I_A, *hitObject, objects);
-				}
-				else {
-					color = I_A;
-				}
+        objects.push_back(std::make_unique<Sphere>(leftEye, eyeRadius, eyeColor, eyeColor, eyeColor, 10.0f));
+        objects.push_back(std::make_unique<Sphere>(rightEye, eyeRadius, eyeColor, eyeColor, eyeColor, 10.0f));
 
-				glUniform3f(pixelColorLocation, color.r, color.g, color.b);
-				glBegin(GL_POINTS);
+        // mouth
 
-				glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
-				glEnd();
-			}
-		}
+		// TODO: improve mouth design
+        glm::vec3 mouthColor(0.8f, 0.2f, 0.2f);
+        int mouthSegments = 6;
+        float mouthRadius = 0.2f;
+        float mouthY = -0.12f;
+        float mouthZ = -0.85f;
 
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
+        for (int i = 0; i < mouthSegments; i++) {
+            float angle = glm::pi<float>() * (i / float(mouthSegments - 1)) - glm::half_pi<float>();
+            float x = 0.15f * cos(angle) - 0.01f;
+            float y = mouthY - 0.05f * sin(angle);
+            Point p(x, y, mouthZ, 1.0f);
+            objects.push_back(std::make_unique<Sphere>(p, 0.03f, mouthColor, mouthColor, mouthColor, 10.0f));
+        }
+
+        // hat
+        glm::vec4 cone_dir = glm::normalize(glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+        glm::vec3 headTop = glm::vec3(headCenter.position) + glm::vec3(0.0f, headRadius - 0.1f, 0.0f);
+        Point coneBaseCenter(headTop.x, headTop.y, headTop.z, 1.0f);
+
+        float coneBaseRadius = 0.45f;
+        float coneHeight = 0.5f;
+        glm::vec3 coneColor(0.6f, 0.3f, 0.1f);
+
+        objects.push_back(std::make_unique<Cone>(
+            coneBaseCenter,
+            cone_dir,
+            coneHeight,
+            coneBaseRadius,
+            true,
+            coneColor, coneColor, coneColor, 10.0f,
+            coneColor, coneColor, coneColor, 10.0f
+        ));
+
+
+        // light
+        LightSource light(glm::vec3(0.8f, 0.8f, 0.8f), Point(0.5f, 0.5f, -0.5f, 1.0f));
+        glm::vec3 I_A = glm::vec3(0.4f, 0.4f, 0.4f); 
+
+        Point eye(0.0f, 0.0f, 0.0f, 1.0f);
+
+        float Dx = wJanela / (float)nCol;
+        float Dy = hJanela / (float)nLin;
+
+        glViewport(0, 0, 500, 500);
+        glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        s.bind();
+
+        float z = -dJanela;
+        for (int l = 0; l < nLin; l++) {
+            float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
+            for (int c = 0; c < nCol; c++) {
+                float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
+                Ray ray(eye, glm::vec4(x, y, z, 0.0f));
+
+                glm::vec3 color(0.0f);
+                float t_min = FLT_MAX;
+                Object* hitObject = nullptr;
+
+                for (auto& obj : objects) {
+                    float t;
+                    if (obj->intersect(ray, t) && t < t_min) {
+                        t_min = t;
+                        hitObject = obj.get();
+                    }
+                }
+
+                if (hitObject) {
+                    glm::vec3 Pi = glm::vec3(eye.position) + t_min * glm::normalize(glm::vec3(ray.direction));
+                    glm::vec3 viewDir = glm::normalize(glm::vec3(ray.direction));
+                    glm::vec3 n = hitObject->getNormal(Pi, viewDir);
+                    color = shade(Pi, n, ray, light, I_A, *hitObject, objects);
+                }
+                else {
+                    color = I_A;
+                }
+
+                glUniform3f(pixelColorLocation, color.r, color.g, color.b);
+                glBegin(GL_POINTS);
+                glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
+                glEnd();
+            }
+        }
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
 	//there is no need to call the clear function for the libraries since the os will do that for us.
 	//by calling this functions we are just wasting time.
