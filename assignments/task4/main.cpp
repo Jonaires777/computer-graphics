@@ -90,7 +90,7 @@ int main(void)
 
 		// scene definition
 		float sphereRadius = 0.4f;
-		Point sphereCenter(0.0f, 0.0f, -1.3f, 1.0f);
+		Point sphereCenter(0.0f, 0.0f, -1.0f, 1.0f);
 
 		std::vector<std::unique_ptr<Object>> objects;
 		objects.push_back(std::make_unique<Sphere>(
@@ -118,10 +118,10 @@ int main(void)
 			1.0f));
 
 		// Cilinder
-		glm::vec4 cil_dir = glm::normalize(glm::vec4(-1.0f, 1.0f, 1.0f, 0.0f));
+		glm::vec4 cil_dir = glm::normalize(glm::vec4(-1.0f, 1.0f, -1.0f, 0.0f));
 		Point cil_baseCenter = sphereCenter;
 		float cil_radius = sphereRadius / 3.0f;
-		float cil_height = 1.5f * sphereRadius;
+		float cil_height = 3.0f * sphereRadius;
 		glm::vec3 cil_color(0.2f, 0.3f, 0.8f);
 
 		objects.push_back(std::make_unique<Cilinder>(
@@ -145,11 +145,11 @@ int main(void)
 		glm::vec3 cilTopCenter_vec3 = glm::vec3(cil_baseCenter.position) + cil_height * glm::vec3(cil_dir);
 		Point cilTopCenter(cilTopCenter_vec3.x, cilTopCenter_vec3.y, cilTopCenter_vec3.z, 1.0f);
 
-		glm::vec4 cone_dir = glm::normalize(glm::vec4(-1.0f, 1.0f, 1.0f, 0.0f));
+		glm::vec4 cone_dir = glm::normalize(glm::vec4(-1.0f, 1.0f, -1.0f, 0.0f));
 
 		Point cone_baseCenter(cilTopCenter_vec3.x, cilTopCenter_vec3.y, cilTopCenter_vec3.z, 1.0f);
 
-		float coneBaseRadius = 1.0f * sphereRadius;
+		float coneBaseRadius = 1.5f * sphereRadius;
 		float coneHeight = (1.0f / 3.0f) * coneBaseRadius;
 		glm::vec3 cone_color(0.8f, 0.3f, 0.2f); 
 
@@ -158,7 +158,7 @@ int main(void)
 			cone_dir,
 			coneHeight,
 			coneBaseRadius,
-			true, 
+			false, 
 			cone_color, 
 			cone_color, 
 			cone_color,
@@ -169,7 +169,7 @@ int main(void)
 			10.0f
 		));
 		
-		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 0.2f, -0.3f, 1.0f));
+		LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(0.0f, 0.6f, -0.3f, 1.0f));
 		glm::vec3 I_A = glm::vec3(0.3f, 0.3f, 0.3f);
 
 		Point eye(0.0f, 0.0f, 0.0f, 1.0f);
