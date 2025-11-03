@@ -56,3 +56,5 @@ add_subdirectory(assignments/task2)
 add_subdirectory(assignments/task3)
 
 add_subdirectory(assignments/task4)
+
+add_subdirectory(assignments/task5)
