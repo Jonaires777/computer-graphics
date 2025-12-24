@@ -1,50 +1,50 @@
 #include "model/Objects/Mesh.h"
-#include <limits>
 
-Mesh::Mesh(const std::vector<Triangle>& tris)
-    : triangles(tris)
-{
-}
+Mesh::Mesh(const std::vector<Triangle>& tris) : triangles(tris) {}
 
+// Implementação da classe base (apenas para compatibilidade de interface)
 bool Mesh::intersect(const Ray& ray, float& t_out) const {
-   bool hit = false;
-   float t_min = std::numeric_limits<float>::max();
-
-   for (const auto& tri : triangles) {
-       float t;
-       if (tri.intersect(ray, t) && t < t_min) {
-           t_min = t;
-           hit = true;\
-
-           const_cast<glm::vec3&>(K_ambient) = tri.K_ambient;
-           const_cast<glm::vec3&>(K_diffuse) = tri.K_diffuse;
-           const_cast<glm::vec3&>(K_specular) = tri.K_specular;
-           const_cast<float&>(shininess) = tri.shininess;
-       }
-   }
-
-   if (hit) {
-       t_out = t_min;
-       return true;
-   }
-
-   return false;
+    HitRecord tempHit;
+    if (this->intersect(ray, tempHit)) {
+        t_out = tempHit.t;
+        return true;
+    }
+    return false;
 }
 
+// Implementação da classe base (PROBLEMA: Aqui não sabemos qual triângulo foi atingido)
+// Para funcionar via Object*, você teria que salvar o hit no Mesh (o que quebra as threads).
+// Por isso, usaremos o getNormalFromHit no renderRows.
 glm::vec3 Mesh::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
-    const Triangle* nearest = nullptr;
-    float t_min = std::numeric_limits<float>::max();
+    return glm::vec3(0.0f); // Não deve ser chamada diretamente para Meshes em Multithread
+}
 
+// VERSÃO SEGURA PARA THREADS
+bool Mesh::intersect(const Ray& ray, HitRecord& hit) const {
+    bool hasHit = false;
     for (const auto& tri : triangles) {
-        float t;
-        if (tri.intersect(Ray(Point(Pi.x, Pi.y, Pi.z, 1.0f), glm::vec4(rayDir, 0.0f)), t) && t < t_min) {
-            t_min = t;
-            nearest = &tri;
+        float t_tri;
+        if (tri.intersect(ray, t_tri)) {
+            if (t_tri < hit.t && t_tri > 0.001f) {
+                hit.t = t_tri;
+                hit.hitTriangle = &tri;
+                hasHit = true;
+            }
         }
     }
+    return hasHit;
+}
 
-    if (nearest)
-        return nearest->getNormal(Pi, rayDir);
+glm::vec3 Mesh::getNormalFromHit(const HitRecord& hit, const glm::vec3& Pi) const {
+    if (!hit.hitTriangle) return glm::vec3(0.0f);
 
-    return glm::vec3(0.0f);
+    // Normal local do triângulo (certifique-se que Triangle::getNormal não inverte mais!)
+    glm::vec3 nLocal = hit.hitTriangle->getNormal(Pi, glm::vec3(0.0f));
+
+    // Usa a normalMatrix herdada de Object
+    glm::vec3 nWorld = glm::normalize(this->normalMatrix * nLocal);
+
+    // REMOVIDO: if (dot(nWorld, rayDir) > 0) nWorld = -nWorld;
+    // A iluminação agora depende da orientação real do triângulo.
+    return nWorld;
 }

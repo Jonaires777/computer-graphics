@@ -1,7 +1,10 @@
 #include "model/Objects/Triangle.h"
+#include "operations/Operations.h"
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 #include <iostream>
+
+using namespace Operations;
 
 Triangle::Triangle(
 	const Point& v0,
@@ -21,6 +24,11 @@ Triangle::Triangle(
 }
 
 bool Triangle::intersect(const Ray& ray, float& t_out) const {
+	Ray localRay = transformRay(ray, invModel);
+	return intersectLocal(localRay, t_out);
+}
+
+bool Triangle::intersectLocal(const Ray& ray, float& t_out) const {
 	const float EPSILON = 1e-6f;
 
 	glm::vec3 v0v1 = glm::vec3(v1.position) - glm::vec3(v0.position);
@@ -53,11 +61,17 @@ bool Triangle::intersect(const Ray& ray, float& t_out) const {
 	return false;
 }
 
-glm::vec3 Triangle::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
+glm::vec3 Triangle::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
+{
 	glm::vec3 edge1 = glm::vec3(v1.position) - glm::vec3(v0.position);
 	glm::vec3 edge2 = glm::vec3(v2.position) - glm::vec3(v0.position);
-	glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
-	if (glm::dot(normal, rayDir) > 0.0f)
-		normal = -normal;
-	return normal;
+	glm::vec3 normalLocal = glm::normalize(glm::cross(edge1, edge2));
+
+	glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+	glm::vec3 normalWorld = glm::normalize(normalMatrix * normalLocal);
+
+	if (glm::dot(normalWorld, rayDir) > 0.0f)
+		normalWorld = -normalWorld;
+
+	return normalWorld;
 }

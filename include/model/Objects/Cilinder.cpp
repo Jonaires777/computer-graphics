@@ -1,7 +1,10 @@
 #include "model/Objects/Cilinder.h"
+#include "operations/Operations.h"
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 #include <iostream>
+
+using namespace Operations;
 
 Cilinder::Cilinder(
 	const Point& baseCenter,
@@ -39,6 +42,11 @@ Cilinder::Cilinder(
 
 bool Cilinder::intersect(const Ray& ray, float& t_out) const
 {
+    Ray localRay = transformRay(ray, invModel);
+    return intersectLocal(localRay, t_out);
+}
+
+bool Cilinder::intersectLocal(const Ray& ray, float& t_out) const {
     glm::vec3 dc = glm::normalize(glm::vec3(direction));
     glm::vec3 dr = glm::normalize(glm::vec3(ray.direction));
     glm::vec3 w = glm::vec3(ray.origin.position) - glm::vec3(baseCenter.position);
@@ -116,27 +124,31 @@ bool Cilinder::intersect(const Ray& ray, float& t_out) const
     return t_out < std::numeric_limits<float>::infinity();
 }
 
-glm::vec3 Cilinder::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
+glm::vec3 Cilinder::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
+{
     glm::vec3 dc = glm::normalize(glm::vec3(direction));
     glm::vec3 pc = glm::vec3(baseCenter.position);
-    glm::vec3 topCenter = pc + height * dc;
 
-    glm::vec3 normal;
+    glm::vec3 normalLocal;
 
-    if (lastHitPart == 1)     
-        normal = -dc;
-    else if (lastHitPart == 2)
-        normal = dc;
-    else {
+    if (lastHitPart == 1)          // base
+        normalLocal = -dc;
+    else if (lastHitPart == 2)     // topo
+        normalLocal = dc;
+    else                           // lateral
+    {
         glm::vec3 v = Pi - pc;
         glm::vec3 proj = glm::dot(v, dc) * dc;
-        normal = glm::normalize(v - proj);
+        normalLocal = glm::normalize(v - proj);
     }
 
-    if (glm::dot(normal, rayDir) > 0.0f)
-        normal = -normal;
+    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+    glm::vec3 normalWorld = glm::normalize(normalMatrix * normalLocal);
 
-    return normal;
+    if (glm::dot(normalWorld, rayDir) > 0.0f)
+        normalWorld = -normalWorld;
+
+    return normalWorld;
 }
 
 

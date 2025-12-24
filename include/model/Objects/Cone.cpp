@@ -1,7 +1,10 @@
 #include "model/Objects/Cone.h"
+#include "operations/Operations.h"
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 #include <iostream>
+
+using namespace Operations;
 
 Cone::Cone(
 	const Point& baseCenter,
@@ -64,6 +67,11 @@ Cone::Cone(const Point& baseCenter, const Point& vertex, float baseRadius, bool 
 
 bool Cone::intersect(const Ray& ray, float& t_out) const
 {
+	Ray localRay = transformRay(ray, invModel);
+	return intersectLocal(localRay, t_out);
+}
+
+bool Cone::intersectLocal(const Ray& ray, float& t_out) const {
 	glm::vec3 dc = glm::normalize(glm::vec3(direction));
 	glm::vec3 ro = glm::vec3(ray.origin.position);
 	glm::vec3 rd = glm::normalize(glm::vec3(ray.direction));
@@ -142,23 +150,42 @@ bool Cone::intersect(const Ray& ray, float& t_out) const
 	return true;
 }
 
-
 glm::vec3 Cone::getNormal(const glm::vec3& Pi, const glm::vec3& viewDir) const
 {
 	glm::vec3 dc = glm::normalize(glm::vec3(direction));
-	glm::vec3 pc = glm::vec3(baseCenter.position);
+	glm::vec3 base = glm::vec3(baseCenter.position);
+	glm::vec3 apex = base + dc * height;
 
-	if (lastHitPart == 1)
-		return -dc;
+	const float eps = 1e-4f;
+	float h = glm::dot(Pi - base, dc);
 
-	glm::vec3 apex = pc + dc * height;
-	glm::vec3 v = Pi - apex;
-	glm::vec3 v_proj = glm::dot(v, dc) * dc;
+	glm::vec3 normalLocal;
 
-	glm::vec3 n = glm::normalize((v_proj - v) * (height / baseRadius));
+	// BASE
+	if (hasBase && h < eps)
+	{
+		normalLocal = -dc; // Aponta para baixo, fora da base
+	}
+	else
+	{
+		// LATERAL
+		glm::vec3 v = Pi - apex;
 
-	if (glm::dot(n, viewDir) > 0.0f)
-		n = -n;
+		// A inclinação da lateral do cone (slope)
+		float k = baseRadius / height;
+		float m = k * k;
 
-	return n;
+		// Cálculo da normal para a superfície lateral
+		// Projeta o ponto no eixo e ajusta pela inclinação
+		glm::vec3 n = (Pi - apex) - dc * (glm::dot(Pi - apex, dc) * (1.0f + m));
+
+		// Se o cone ainda estiver escuro, tente inverter o sinal de 'n' aqui:
+		normalLocal = glm::normalize(n);
+	}
+
+	// Transforma a normal para o espaço do mundo corretamente
+	glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+	glm::vec3 normalWorld = glm::normalize(normalMatrix * normalLocal);
+
+	return normalWorld;
 }

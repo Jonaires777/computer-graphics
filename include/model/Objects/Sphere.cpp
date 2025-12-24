@@ -1,7 +1,10 @@
 ﻿#include "model/Objects/Sphere.h"
+#include "operations/Operations.h"
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 #include <iostream>
+
+using namespace Operations;
 
 Sphere::Sphere(
     const Point& c, 
@@ -20,6 +23,11 @@ Sphere::Sphere(
 }
 
 bool Sphere::intersect(const Ray& ray, float& t_out) const {
+    Ray localRay = transformRay(ray, invModel);
+    return intersectLocal(localRay, t_out);
+}
+
+bool Sphere::intersectLocal(const Ray& ray, float& t_out) const {
     glm::vec3 O = glm::vec3(ray.origin.position);
     glm::vec3 D = glm::vec3(ray.direction);
     D = glm::normalize(D);
@@ -43,9 +51,22 @@ bool Sphere::intersect(const Ray& ray, float& t_out) const {
     return t_out > 0;
 }
 
-glm::vec3 Sphere::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
-    glm::vec3 normal = glm::normalize(Pi - glm::vec3(center.position));
-    if (glm::dot(normal, rayDir) > 0.0f)
-        normal = -normal;
-    return normal;
+glm::vec3 Sphere::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
+{
+    // -------- 1. Converte Pi para espaço local --------
+    glm::vec3 PiLocal = glm::vec3(invModel * glm::vec4(Pi, 1.0f));
+    glm::vec3 centerLocal = glm::vec3(center.position);
+
+    // -------- 2. Normal local --------
+    glm::vec3 normalLocal = glm::normalize(PiLocal - centerLocal);
+
+    // -------- 3. Transforma normal para world --------
+    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+    glm::vec3 normalWorld = glm::normalize(normalMatrix * normalLocal);
+
+    // -------- 4. Orientação correta --------
+    if (glm::dot(normalWorld, rayDir) > 0.0f)
+        normalWorld = -normalWorld;
+
+    return normalWorld;
 }

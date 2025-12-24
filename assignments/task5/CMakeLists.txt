@@ -13,6 +13,7 @@ add_executable(task5 main.cpp
     "${CMAKE_SOURCE_DIR}/include/model/Objects/Cone.cpp"
     "${CMAKE_SOURCE_DIR}/include/model/Objects/Triangle.cpp"
     "${CMAKE_SOURCE_DIR}/include/model/Objects/Mesh.cpp"
+    "${CMAKE_SOURCE_DIR}/include/model/Camera.cpp"
 )
 
 set_property(TARGET task5 PROPERTY CXX_STANDARD 17)

@@ -1,7 +1,10 @@
 #include "model/Objects/Plane.h"
+#include "operations/Operations.h"
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 #include <iostream>
+
+using namespace Operations;
 
 Plane::Plane(
     const Point& pi,
@@ -21,6 +24,11 @@ Plane::Plane(
 
 bool Plane::intersect(const Ray& ray, float& t_out) const
 {
+    Ray localRay = transformRay(ray, invModel);
+    return intersectLocal(localRay, t_out);
+}
+
+bool Plane::intersectLocal(const Ray& ray, float& t_out) const {
     glm::vec3 O = glm::vec3(ray.origin.position);
     glm::vec3 D = glm::normalize(glm::vec3(ray.direction));
 
@@ -35,9 +43,18 @@ bool Plane::intersect(const Ray& ray, float& t_out) const
     return t_out > 1e-4f;
 }
 
-glm::vec3 Plane::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
-    glm::vec3 normal = glm::normalize(glm::vec3(normal_n));
-    if (glm::dot(normal, rayDir) > 0.0f)
-        normal = -normal;
-    return normal;
+glm::vec3 Plane::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
+{
+    // -------- NORMAL LOCAL --------
+    glm::vec3 normalLocal = glm::normalize(glm::vec3(normal_n));
+
+    // -------- TRANSFORMA PARA WORLD --------
+    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+    glm::vec3 normalWorld = glm::normalize(normalMatrix * normalLocal);
+
+    // -------- GARANTE ORIENTAÇÃO --------
+    if (glm::dot(normalWorld, rayDir) > 0.0f)
+        normalWorld = -normalWorld;
+
+    return normalWorld;
 }
