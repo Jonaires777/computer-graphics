@@ -1,5 +1,6 @@
 #include <glm/glm.hpp>
 #include "model/Camera.h"
+#include <glm/gtc/constants.hpp>
 
 Camera::Camera(
     const Point& pos,
@@ -17,6 +18,13 @@ Camera::Camera(
     forward = glm::normalize(lookAt - glm::vec3(pos.position));
     right = glm::normalize(glm::cross(forward, upVec));
     up = glm::normalize(glm::cross(right, forward));
+
+    glm::vec3 dir = glm::normalize(lookAt - glm::vec3(pos.position));
+
+    yaw = atan2(dir.z, dir.x);
+    pitch = asin(dir.y);
+
+    rotate(0, 0);
 }
 
 Ray Camera::generateRay(float px, float py) const
@@ -41,4 +49,22 @@ void Camera::moveForward(float delta) {
 
 void Camera::moveRight(float delta) {
     position.position += glm::vec4(right * delta, 0.0f);
+}
+
+void Camera::rotate(float deltaYaw, float deltaPitch)
+{
+    yaw += deltaYaw;
+    pitch += deltaPitch;
+
+    float limit = glm::radians(89.0f);
+    pitch = glm::clamp(pitch, -limit, limit);
+
+    forward = glm::normalize(glm::vec3(
+        cos(pitch) * cos(yaw),
+        sin(pitch),
+        cos(pitch) * sin(yaw)
+    ));
+
+    right = glm::normalize(glm::cross(forward, glm::vec3(0, 1, 0)));
+    up = glm::normalize(glm::cross(right, forward));
 }

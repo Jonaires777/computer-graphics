@@ -15,6 +15,9 @@ public:
     float aspect;    
     float nearDist;
 
+    float yaw;  
+    float pitch;
+
     Camera(
         const Point& pos,
         const glm::vec3& lookAt,
@@ -29,4 +32,6 @@ public:
     void moveForward(float delta);
 
     void moveRight(float delta);
+
+    void rotate(float deltaYaw, float deltaPitch);
 };

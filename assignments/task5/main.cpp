@@ -35,6 +35,9 @@ bool moveForward = false;
 bool moveBackward = false;
 bool moveLeft = false;
 bool moveRight = false;
+double lastX = 250, lastY = 250;
+bool firstMouse = true;
+
 
 extern "C"
 {
@@ -69,6 +72,25 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     }
 }
 
+static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    Camera* camera = (Camera*)glfwGetWindowUserPointer(window);
+
+    static double lastX = xpos;
+    static double lastY = ypos;
+
+    float sensitivity = 0.002f;
+
+    float dx = (xpos - lastX) * sensitivity;
+    float dy = (lastY - ypos) * sensitivity;
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera->rotate(dx, dy);
+    cameraDirty = true;
+}
+
 void renderRows(
     int yStart, int yEnd, int nCol, int nLin,
     float wJanela, float hJanela, float dJanela,
@@ -94,11 +116,9 @@ void renderRows(
             float t_min = FLT_MAX;
             Object* hitObject = nullptr;
 
-            // Variável local para armazenar o triângulo atingido nesta thread/pixel
             HitRecord bestMeshHit;
 
             for (auto& obj : objects) {
-                // Verificamos se o objeto é uma Mesh
                 Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
 
                 if (meshPtr) {
@@ -106,7 +126,7 @@ void renderRows(
                     if (meshPtr->intersect(ray, currentHit) && currentHit.t < t_min) {
                         t_min = currentHit.t;
                         hitObject = obj.get();
-                        bestMeshHit = currentHit; // Salva o triângulo localmente
+                        bestMeshHit = currentHit;
                     }
                 }
                 else {
@@ -176,10 +196,21 @@ int main(void)
 
 	glfwSetKeyCallback(window, key_callback);
 
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPosCallback(window, mouse_callback);
+
 	glfwMakeContextCurrent(window);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 	glfwSwapInterval(1);
 
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, MAX_WIDHT, MAX_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 #pragma region report opengl errors to std
 	glEnable(GL_DEBUG_OUTPUT);
@@ -343,6 +374,7 @@ int main(void)
     glm::vec3 I_A(0.3f, 0.3f, 0.3f);
 
     std::vector<glm::vec3> framebuffer(MAX_WIDHT* MAX_HEIGHT);
+    static std::vector<unsigned char> pixelBuffer(MAX_WIDHT* MAX_HEIGHT * 3);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -413,24 +445,42 @@ int main(void)
         for (auto& t : threads)
             t.join();
 
-        glUseProgram(0);
-        glPointSize(1.0f);
-        glBegin(GL_POINTS);
-        for (int l = 0; l < nLin; l++) {
-            for (int c = 0; c < nCol; c++) {
-                glm::vec3 color = framebuffer[l * nCol + c];
-
-                float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
-                float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
-
-                glColor3f(color.r, color.g, color.b);
-
-                float nx = (2.0f * c) / (nCol - 1) - 1.0f;
-                float ny = 1.0f - (2.0f * l) / (nLin - 1);
-                glVertex2f(nx, ny);
-
-            }
+        for (int i = 0; i < MAX_WIDHT * MAX_HEIGHT; i++) {
+            pixelBuffer[i * 3 + 0] = (unsigned char)(glm::clamp(framebuffer[i].r, 0.0f, 1.0f) * 255.0f);
+            pixelBuffer[i * 3 + 1] = (unsigned char)(glm::clamp(framebuffer[i].g, 0.0f, 1.0f) * 255.0f);
+            pixelBuffer[i * 3 + 2] = (unsigned char)(glm::clamp(framebuffer[i].b, 0.0f, 1.0f) * 255.0f);
         }
+
+        glBindTexture(GL_TEXTURE_2D, tex);
+
+        glTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            0, 0,
+            MAX_WIDHT,
+            MAX_HEIGHT,
+            GL_RGB,
+            GL_UNSIGNED_BYTE,
+            pixelBuffer.data()
+        );
+
+        glDisable(GL_DEPTH_TEST);
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(-1, 1, -1, 1, -1, 1);
+
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, tex);
+
+        glBegin(GL_QUADS);
+        glTexCoord2f(0, 1); glVertex2f(-1, -1);
+        glTexCoord2f(1, 1); glVertex2f(1, -1);
+        glTexCoord2f(1, 0); glVertex2f(1, 1);
+        glTexCoord2f(0, 0); glVertex2f(-1, 1);
         glEnd();
 
 		glfwSwapBuffers(window);
