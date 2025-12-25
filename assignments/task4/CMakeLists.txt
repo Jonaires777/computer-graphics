@@ -5,7 +5,7 @@ add_executable(task4 main.cpp
     "${CMAKE_SOURCE_DIR}/src/openglDebug.cpp"
     "${CMAKE_SOURCE_DIR}/include/model/Point.h"
     "${CMAKE_SOURCE_DIR}/include/model/Ray.h"
-    "${CMAKE_SOURCE_DIR}/include/model/LightSource.h"
+    "../../include/model/PointLight.h"
     "${CMAKE_SOURCE_DIR}/include/model/Objects/Sphere.cpp"
     "${CMAKE_SOURCE_DIR}/include/operations/Shading.cpp"
     "${CMAKE_SOURCE_DIR}/include/model/Objects/Plane.cpp"

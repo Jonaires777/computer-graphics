@@ -9,7 +9,9 @@
 #include <glm/gtc/constants.hpp>
 #include "model/Point.h"
 #include "model/Ray.h"
-#include "model/LightSource.h"
+#include "model/Light.h"
+#include "model/PointLight.h"
+#include "model/SpotLight.h"
 #include "model/Objects/Sphere.h"
 #include "model/Objects/Plane.h"
 #include "model/Objects/Cilinder.h"
@@ -96,7 +98,7 @@ void renderRows(
     float wJanela, float hJanela, float dJanela,
     Camera& camera,
     const std::vector<std::unique_ptr<Object>>& objects,
-    const LightSource& light,
+    const std::vector<Light*>& lights,
     const glm::vec3& I_A,
     std::vector<glm::vec3>& framebuffer
 ) {
@@ -161,7 +163,7 @@ void renderRows(
                     n_world = hitObject->getNormal(Pi_local, viewDir);
                 }
 
-                color = shade(Pi_world, n_world, ray, light, I_A, *hitObject, objects);
+                color = shade(Pi_world, n_world, ray, lights, I_A, *hitObject, objects);
             }
 
             framebuffer[l * nCol + c] = color;
@@ -370,7 +372,19 @@ int main(void)
         10.0f
     ));
 
-    LightSource light(glm::vec3(0.7f, 0.7f, 0.7f), Point(-1.0f, 1.4f, -0.2f, 1.0f));
+    SpotLight* spot = new SpotLight(
+        glm::vec3(1.0f),
+        Point(-1.0f, 1.4f, -0.2f, 1.0f),
+        glm::vec3(0.0f, -1.0f, 0.0f),
+        60.0f
+    );
+
+	PointLight point(glm::vec3(0.7f, 0.7f, 0.7f), Point(-1.0f, 1.4f, -0.2f, 1.0f));
+
+    std::vector<Light*> lights;
+    //lights.push_back(&point);                                                                                         
+    lights.push_back(spot);
+
     glm::vec3 I_A(0.3f, 0.3f, 0.3f);
 
     std::vector<glm::vec3> framebuffer(MAX_WIDHT* MAX_HEIGHT);
@@ -436,7 +450,7 @@ int main(void)
                 dJanela,
                 std::ref(camera),
                 std::cref(objects),
-                std::cref(light),
+                std::cref(lights),
                 std::cref(I_A),
                 std::ref(framebuffer)
             );
