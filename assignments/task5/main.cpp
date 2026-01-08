@@ -35,6 +35,8 @@ using namespace Operations;
 
 #define USE_GPU_ENGINE 0
 
+bool lightOn = true;
+bool triggerPick = false;
 bool cameraDirty = true;
 bool moveForward = false;
 bool moveBackward = false;
@@ -94,6 +96,13 @@ static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
     camera->rotate(dx, dy);
     cameraDirty = true;
+}
+
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        // Não precisamos de 'extern' aqui se ela estiver no mesmo arquivo
+        triggerPick = true;
+    }
 }
 
 void renderTiles(
@@ -182,6 +191,43 @@ void renderTiles(
     }
 }
 
+Object* pickObject(Camera& camera, const std::vector<ObjectCache>& sceneCache) {
+    Ray ray = camera.generateRay(0.0f, 0.0f); // Centro da tela
+
+    float t_min = FLT_MAX;
+    Object* hitObject = nullptr;
+
+    for (const auto& item : sceneCache) {
+        float t;
+        // Teste AABB para performance no picking
+        if (!item.isPlane) {
+            float tNear, tFar;
+            if (!item.box.intersect(ray, tNear, tFar)) continue;
+        }
+
+        // Teste de interseção real
+        if (item.isMesh) {
+            Mesh* meshPtr = static_cast<Mesh*>(item.ptr);
+            HitRecord hr;
+            if (meshPtr->intersect(ray, hr)) {
+                if (hr.t < t_min) {
+                    t_min = hr.t;
+                    hitObject = item.ptr;
+                }
+            }
+        }
+        else {
+            if (item.ptr->intersect(ray, t)) {
+                if (t < t_min) {
+                    t_min = t;
+                    hitObject = item.ptr;
+                }
+            }
+        }
+    }
+    return hitObject;
+}
+
 int main(void)
 {
 
@@ -208,6 +254,7 @@ int main(void)
 	}
 
 	glfwSetKeyCallback(window, key_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
@@ -383,6 +430,51 @@ int main(void)
         10.0f
     ));
 
+    Object* interruptorPtr = nullptr;
+    {
+        float s = 0.08f; // Metade do tamanho do lado do cubo
+        // Parede esquerda está em x = -2.0. 
+        // Posicionamos em x = -1.92 para que o cubo "saia" da parede em direção ao centro.
+        glm::vec3 p(-1.92f, 0.0f, 0.0f);
+
+        std::vector<Triangle> swTris;
+
+        // Vértices do cubo (8 pontos) desempacotados para o seu construtor Point
+        glm::vec3 v[8] = {
+            p + glm::vec3(-s, -s,  s), p + glm::vec3(s, -s,  s), p + glm::vec3(s,  s,  s), p + glm::vec3(-s,  s,  s),
+            p + glm::vec3(-s, -s, -s), p + glm::vec3(s, -s, -s), p + glm::vec3(s,  s, -s), p + glm::vec3(-s,  s, -s)
+        };
+
+        glm::vec3 blackColor(0.0f, 0.0f, 0.0f); // Preto
+
+        auto addQ = [&](int a, int b, int c, int d) {
+            // Criando os triângulos respeitando Point(x, y, z, w)
+            swTris.push_back(Triangle(
+                Point(v[a].x, v[a].y, v[a].z, 1.0f),
+                Point(v[b].x, v[b].y, v[b].z, 1.0f),
+                Point(v[c].x, v[c].y, v[c].z, 1.0f),
+                blackColor, blackColor, blackColor, 32.0f));
+            swTris.push_back(Triangle(
+                Point(v[a].x, v[a].y, v[a].z, 1.0f),
+                Point(v[c].x, v[c].y, v[c].z, 1.0f),
+                Point(v[d].x, v[d].y, v[d].z, 1.0f),
+                blackColor, blackColor, blackColor, 32.0f));
+            };
+
+        // Construindo as 6 faces do cubo
+        addQ(0, 1, 2, 3); // Frente
+        addQ(1, 5, 6, 2); // Direita
+        addQ(5, 4, 7, 6); // Fundo
+        addQ(4, 0, 3, 7); // Esquerda
+        addQ(3, 2, 6, 7); // Cima
+        addQ(4, 5, 1, 0); // Baixo
+
+        auto swMesh = std::make_unique<Mesh>(swTris);
+        swMesh->model = glm::mat4(1.0f); // Identidade para o Bake
+        interruptorPtr = swMesh.get();
+        objects.push_back(std::move(swMesh));
+    }
+
     SpotLight* spot = new SpotLight(
         glm::vec3(1.0f),
         Point(-1.0f, 1.4f, -0.2f, 1.0f),
@@ -438,8 +530,8 @@ int main(void)
 
         glfwPollEvents();
 
+        // --- 1. MOVIMENTAÇÃO ---
         float speed = 0.1f;
-
         if (moveForward)  camera.moveForward(speed);
         if (moveBackward) camera.moveForward(-speed);
         if (moveLeft)     camera.moveRight(-speed);
@@ -448,46 +540,9 @@ int main(void)
         bool moving = moveForward || moveBackward || moveLeft || moveRight;
         cameraDirty |= moving;
 
-        if (!cameraDirty)
-            continue;
-
-        cameraDirty = false;
-
-		float wJanela = 0.6f;
-		float hJanela = 0.6f;
-		float dJanela = 0.3f; 
-		int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
-
-		float Dx = wJanela / (float)nCol;
-		float Dy = hJanela / (float)nLin;
-
-		glViewport(0, 0, 500, 500);
-		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		float z = -dJanela;
-
-        int tileSize = 32;
-        std::vector<Tile> tiles;
-        for (int y = 0; y < MAX_HEIGHT; y += tileSize) {
-            for (int x = 0; x < MAX_WIDHT; x += tileSize) {
-                Tile t;
-                t.x = x;
-                t.y = y;
-                t.w = std::min(tileSize, MAX_WIDHT - x);
-                t.h = std::min(tileSize, MAX_HEIGHT - y);
-                tiles.push_back(t);
-            }
-        }
-
-        std::atomic<int> nextTileIndex(0);
-        int numThreads = std::thread::hardware_concurrency();
-        numThreads = std::max(1, numThreads);
-        std::vector<std::thread> workers;
-
+        // --- 2. GERAÇÃO DO CACHE (Apenas se necessário ou uma vez por frame) ---
         std::vector<ObjectCache> sceneCache;
         sceneCache.reserve(objects.size());
-
         for (auto& obj : objects) {
             ObjectCache cache;
             cache.ptr = obj.get();
@@ -497,62 +552,81 @@ int main(void)
             sceneCache.push_back(cache);
         }
 
-        std::fill(framebuffer.begin(), framebuffer.end(), I_A);
+        // --- 3. PROCESSO DE PICKING (INTERRUPTOR) ---
+        if (triggerPick) {
+            Object* clicked = pickObject(camera, sceneCache);
+            if (clicked == interruptorPtr) {
+                lightOn = !lightOn;
+                // Liga/Desliga a luz
+                spot->intensity = lightOn ? glm::vec3(1.0f) : glm::vec3(0.0f);
 
-        for (int i = 0; i < numThreads; ++i) {
-            workers.emplace_back([&]() {
-                while (true) {
-                    int index = nextTileIndex.fetch_add(1);
-                    if (index >= tiles.size()) break;
+                // FEEDBACK VISUAL: Muda a cor do interruptor
+                // Se for Mesh, você pode acessar os triângulos e mudar a cor deles, 
+                // ou simplificar mudando o K_ambient do objeto se sua classe suportar.
 
-                    renderTiles(
-                        tiles[index], nCol, nLin, wJanela, hJanela, camera, sceneCache, lights, I_A, framebuffer
-                    );
+                cameraDirty = true; // Força o redesenho após a interação
+            }
+            triggerPick = false;
+        }
+
+        // --- 4. RENDERIZAÇÃO (Só acontece se algo mudou) ---
+        if (cameraDirty) {
+            cameraDirty = false;
+
+            float wJanela = 0.6f;
+            float hJanela = 0.6f;
+            int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
+
+            // Limpa buffers
+            std::fill(framebuffer.begin(), framebuffer.end(), I_A);
+
+            // Configuração de Tiles e Threads
+            int tileSize = 32;
+            std::vector<Tile> tiles;
+            for (int y = 0; y < MAX_HEIGHT; y += tileSize) {
+                for (int x = 0; x < MAX_WIDHT; x += tileSize) {
+                    Tile t = { x, y, std::min(tileSize, MAX_WIDHT - x), std::min(tileSize, MAX_HEIGHT - y) };
+                    tiles.push_back(t);
                 }
-                });
+            }
+
+            std::atomic<int> nextTileIndex(0);
+            int numThreads = std::max(1, (int)std::thread::hardware_concurrency());
+            std::vector<std::thread> workers;
+
+            for (int i = 0; i < numThreads; ++i) {
+                workers.emplace_back([&]() {
+                    while (true) {
+                        int index = nextTileIndex.fetch_add(1);
+                        if (index >= tiles.size()) break;
+                        renderTiles(tiles[index], nCol, nLin, wJanela, hJanela, camera, sceneCache, lights, I_A, framebuffer);
+                    }
+                    });
+            }
+            for (auto& w : workers) w.join();
+
+            // Converte framebuffer para pixelBuffer (UNSIGNED BYTE)
+            for (int i = 0; i < MAX_WIDHT * MAX_HEIGHT; i++) {
+                pixelBuffer[i * 3 + 0] = (unsigned char)(glm::clamp(framebuffer[i].r, 0.0f, 1.0f) * 255.0f);
+                pixelBuffer[i * 3 + 1] = (unsigned char)(glm::clamp(framebuffer[i].g, 0.0f, 1.0f) * 255.0f);
+                pixelBuffer[i * 3 + 2] = (unsigned char)(glm::clamp(framebuffer[i].b, 0.0f, 1.0f) * 255.0f);
+            }
+
+            // Atualiza a textura na GPU
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, MAX_WIDHT, MAX_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer.data());
         }
 
-        for (auto& w : workers) w.join();
-
-        for (int i = 0; i < MAX_WIDHT * MAX_HEIGHT; i++) {
-            pixelBuffer[i * 3 + 0] = (unsigned char)(glm::clamp(framebuffer[i].r, 0.0f, 1.0f) * 255.0f);
-            pixelBuffer[i * 3 + 1] = (unsigned char)(glm::clamp(framebuffer[i].g, 0.0f, 1.0f) * 255.0f);
-            pixelBuffer[i * 3 + 2] = (unsigned char)(glm::clamp(framebuffer[i].b, 0.0f, 1.0f) * 255.0f);
-        }
-
-        glBindTexture(GL_TEXTURE_2D, tex);
-
-        glTexSubImage2D(
-            GL_TEXTURE_2D,
-            0,
-            0, 0,
-            MAX_WIDHT,
-            MAX_HEIGHT,
-            GL_RGB,
-            GL_UNSIGNED_BYTE,
-            pixelBuffer.data()
-        );
-
-        glDisable(GL_DEPTH_TEST);
-
-        glBindTexture(GL_TEXTURE_2D, tex);
-
-        // ... (seu código de Ray Tracing e glTexSubImage2D continua igual)
-
+        // --- 5. DESENHO DA TELA (Sempre acontece para manter o FPS estável e mostrar a mira) ---
+        glViewport(0, 0, 500, 500);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        // Usar o programa de shader moderno
         s.bind();
-
-        // Ativar e bindar a textura
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tex);
-
-        // Desenhar o quadrado usando o VAO
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		glfwSwapBuffers(window);
+        glfwSwapBuffers(window);
 
         double currentTime = glfwGetTime();
         nbFrames++;
