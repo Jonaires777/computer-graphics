@@ -22,9 +22,11 @@
 #include "model/Objects/Object.h"
 #include "operations/Operations.h"
 #include "model/ObjectCache.h"
+#include "model/Tile.h"
 #include "model/Camera.h"
 #include <iostream>
 #include <thread>
+#include <atomic>
 
 using namespace Operations;
 
@@ -94,11 +96,12 @@ static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     cameraDirty = true;
 }
 
-void renderRows(
-    int yStart, int yEnd, int nCol, int nLin,
-    float wJanela, float hJanela, float dJanela,
+void renderTiles(
+    const Tile& tile,
+    int nCol, int nLin,
+    float wJanela, float hJanela,
     Camera& camera,
-    const std::vector<ObjectCache>& sceneCache, // Agora recebe o Cache
+    const std::vector<ObjectCache>& sceneCache,
     const std::vector<Light*>& lights,
     const glm::vec3& I_A,
     std::vector<glm::vec3>& framebuffer
@@ -106,9 +109,9 @@ void renderRows(
     float Dx = wJanela / nCol;
     float Dy = hJanela / nLin;
 
-    for (int l = yStart; l < yEnd; l++) {
+    for (int l = tile.y; l < tile.y + tile.h; ++l) {
         float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
-        for (int c = 0; c < nCol; c++) {
+        for (int c = tile.x; c < tile.x + tile.w; ++c) {
             float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
             float px = x / (wJanela / 2.0f);
             float py = y / (hJanela / 2.0f);
@@ -120,10 +123,8 @@ void renderRows(
             Object* hitObject = nullptr;
             HitRecord bestMeshHit;
 
-            // Percorre o cache (muito mais amigável para o cache da CPU)
             for (const auto& item : sceneCache) {
 
-                // 1. Teste de AABB direto (sem chamada virtual)
                 if (!item.isPlane) {
                     float tNear, tFar;
                     if (!item.box.intersect(ray, tNear, tFar)) {
@@ -429,6 +430,9 @@ int main(void)
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    double lastTime = glfwGetTime();
+    int nbFrames = 0;
+
 	while (!glfwWindowShouldClose(window))
 	{
 
@@ -463,11 +467,23 @@ int main(void)
 
 		float z = -dJanela;
 
+        int tileSize = 32;
+        std::vector<Tile> tiles;
+        for (int y = 0; y < MAX_HEIGHT; y += tileSize) {
+            for (int x = 0; x < MAX_WIDHT; x += tileSize) {
+                Tile t;
+                t.x = x;
+                t.y = y;
+                t.w = std::min(tileSize, MAX_WIDHT - x);
+                t.h = std::min(tileSize, MAX_HEIGHT - y);
+                tiles.push_back(t);
+            }
+        }
+
+        std::atomic<int> nextTileIndex(0);
         int numThreads = std::thread::hardware_concurrency();
         numThreads = std::max(1, numThreads);
-
-        std::vector<std::thread> threads;
-        int rowsPerThread = nLin / numThreads;
+        std::vector<std::thread> workers;
 
         std::vector<ObjectCache> sceneCache;
         sceneCache.reserve(objects.size());
@@ -483,24 +499,20 @@ int main(void)
 
         std::fill(framebuffer.begin(), framebuffer.end(), I_A);
 
-        for (int i = 0; i < numThreads; i++) {
-            int yStart = i * rowsPerThread;
-            int yEnd = (i == numThreads - 1) ? nLin : yStart + rowsPerThread;
+        for (int i = 0; i < numThreads; ++i) {
+            workers.emplace_back([&]() {
+                while (true) {
+                    int index = nextTileIndex.fetch_add(1);
+                    if (index >= tiles.size()) break;
 
-            threads.emplace_back(
-                renderRows,
-                yStart, yEnd, nCol, nLin,
-                wJanela, hJanela, dJanela,
-                std::ref(camera),
-                std::cref(sceneCache),
-                std::cref(lights),
-                std::cref(I_A),
-                std::ref(framebuffer)
-            );
+                    renderTiles(
+                        tiles[index], nCol, nLin, wJanela, hJanela, camera, sceneCache, lights, I_A, framebuffer
+                    );
+                }
+                });
         }
 
-        for (auto& t : threads)
-            t.join();
+        for (auto& w : workers) w.join();
 
         for (int i = 0; i < MAX_WIDHT * MAX_HEIGHT; i++) {
             pixelBuffer[i * 3 + 0] = (unsigned char)(glm::clamp(framebuffer[i].r, 0.0f, 1.0f) * 255.0f);
@@ -541,6 +553,21 @@ int main(void)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 		glfwSwapBuffers(window);
+
+        double currentTime = glfwGetTime();
+        nbFrames++;
+
+        if (currentTime - lastTime >= 1.0) {
+            double msPerFrame = 1000.0 / double(nbFrames);
+
+            char title[256];
+            sprintf(title, "FPS: %d  (%.2f ms/frame)", nbFrames, msPerFrame);
+
+            glfwSetWindowTitle(window, title);
+
+            nbFrames = 0;
+            lastTime += 1.0;
+        }
 	}
 
 	//there is no need to call the clear function for the libraries since the os will do that for us.
