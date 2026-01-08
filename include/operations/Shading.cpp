@@ -14,24 +14,22 @@ glm::vec3 shade(
     const std::vector<Light*>& lights,
     const glm::vec3& I_A,
     const Object& hitObject,
-    const std::vector<std::unique_ptr<Object>>& sceneObjects
+    const std::vector<ObjectCache>& sceneCache
 ) {
     using namespace Operations;
 
     glm::vec3 D = glm::normalize(glm::vec3(ray.direction));
     glm::vec3 v = glm::normalize(-D);
-
     glm::vec3 I_total = hitObject.K_ambient * I_A;
 
-    for (const Light* light : lights)
-    {
+    for (const Light* light : lights) {
         glm::vec3 l;
-        float dist;
-        float attenuation;
+        float dist, attenuation;
 
         if (!light->illuminate(Pi, l, dist, attenuation))
             continue;
 
+        // Offset para evitar Shadow Acne
         glm::vec3 shadow_origin = Pi + 1e-4f * n;
         Ray shadow_ray = {
             Point(shadow_origin.x, shadow_origin.y, shadow_origin.z, 1.0f),
@@ -40,30 +38,24 @@ glm::vec3 shade(
 
         bool inShadow = false;
 
-        for (auto& obj : sceneObjects) {
-            // Se for o próprio objeto que acabamos de atingir, podemos ignorar 
-            // (ajuste opcional dependendo se seus objetos são convexos ou não)
-            if (obj.get() == &hitObject) continue;
+        // --- LOOP DE SOMBRAS USANDO O CACHE ---
+        for (const auto& item : sceneCache) {
+            // Ignorar o próprio objeto se necessário
+            if (item.ptr == &hitObject) continue;
 
-            // --- OTIMIZAÇÃO 1: AABB ---
-            // Ignoramos Planos no teste de AABB pois são infinitos
-            if (dynamic_cast<Plane*>(obj.get()) == nullptr) {
+            // 1. Teste de AABB direto do cache
+            if (!item.isPlane) {
                 float tNear, tFar;
-                if (!obj->getAABB().intersect(shadow_ray, tNear, tFar)) {
-                    continue; // Pula o teste de interseção pesado
-                }
-
-                // Se a caixa estiver mais longe que a luz, não pode causar sombra
-                if (tNear > dist) continue;
+                if (!item.box.intersect(shadow_ray, tNear, tFar)) continue;
+                if (tNear > dist) continue; // Objeto atrás da luz
             }
 
-            // --- OTIMIZAÇÃO 2: INTERSEÇÃO E ANY HIT ---
+            // 2. Interseção sem dynamic_cast
             float t;
             bool hit = false;
 
-            // Tratamento especial para Mesh para usar o HitRecord otimizado
-            Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
-            if (meshPtr) {
+            if (item.isMesh) {
+                Mesh* meshPtr = static_cast<Mesh*>(item.ptr);
                 HitRecord hr;
                 if (meshPtr->intersect(shadow_ray, hr)) {
                     t = hr.t;
@@ -71,27 +63,21 @@ glm::vec3 shade(
                 }
             }
             else {
-                hit = obj->intersect(shadow_ray, t);
+                hit = item.ptr->intersect(shadow_ray, t);
             }
 
+            // 3. Any Hit: Bloqueio encontrado, pixel está em sombra
             if (hit && t > 0.001f && t < dist) {
                 inShadow = true;
-                break; // ANY HIT: Encontramos um bloqueio, para o loop aqui!
+                break;
             }
         }
 
-        if (inShadow)
-            continue;
+        if (inShadow) continue;
 
         glm::vec3 r = glm::normalize(2.0f * glm::dot(n, l) * n - l);
-
-        glm::vec3 I_diff =
-            compMul(light->intensity, hitObject.K_diffuse)
-            * glm::max(0.0f, glm::dot(l, n));
-
-        glm::vec3 I_spec =
-            compMul(light->intensity, hitObject.K_specular)
-            * std::pow(glm::max(0.0f, glm::dot(v, r)), hitObject.shininess);
+        glm::vec3 I_diff = compMul(light->intensity, hitObject.K_diffuse) * glm::max(0.0f, glm::dot(l, n));
+        glm::vec3 I_spec = compMul(light->intensity, hitObject.K_specular) * std::pow(glm::max(0.0f, glm::dot(v, r)), hitObject.shininess);
 
         I_total += attenuation * (I_diff + I_spec);
     }

@@ -21,6 +21,7 @@
 #include "operations/Shading.h"
 #include "model/Objects/Object.h"
 #include "operations/Operations.h"
+#include "model/ObjectCache.h"
 #include "model/Camera.h"
 #include <iostream>
 #include <thread>
@@ -97,7 +98,7 @@ void renderRows(
     int yStart, int yEnd, int nCol, int nLin,
     float wJanela, float hJanela, float dJanela,
     Camera& camera,
-    const std::vector<std::unique_ptr<Object>>& objects,
+    const std::vector<ObjectCache>& sceneCache, // Agora recebe o Cache
     const std::vector<Light*>& lights,
     const glm::vec3& I_A,
     std::vector<glm::vec3>& framebuffer
@@ -119,34 +120,32 @@ void renderRows(
             Object* hitObject = nullptr;
             HitRecord bestMeshHit;
 
-            for (auto& obj : objects) {
+            // Percorre o cache (muito mais amigável para o cache da CPU)
+            for (const auto& item : sceneCache) {
 
-                // --- TESTE DE ACELERAÇÃO AABB ---
-                if (dynamic_cast<Plane*>(obj.get()) == nullptr) {
-                    float tNear, tFar; 
-                    AABB box = obj->getAABB();
-                    if (!box.intersect(ray, tNear, tFar)) {
+                // 1. Teste de AABB direto (sem chamada virtual)
+                if (!item.isPlane) {
+                    float tNear, tFar;
+                    if (!item.box.intersect(ray, tNear, tFar)) {
                         continue;
                     }
                 }
-                // --------------------------------
 
-                Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
-
-                if (meshPtr) {
+                // 2. Interseção específica (evita dynamic_cast a cada pixel)
+                if (item.isMesh) {
+                    Mesh* meshPtr = static_cast<Mesh*>(item.ptr); // Cast seguro e imediato
                     HitRecord currentHit;
-                    // O intersect da Mesh já possui internamente o teste da sua própria boundingBox
                     if (meshPtr->intersect(ray, currentHit) && currentHit.t < t_min) {
                         t_min = currentHit.t;
-                        hitObject = obj.get();
+                        hitObject = meshPtr;
                         bestMeshHit = currentHit;
                     }
                 }
                 else {
                     float t;
-                    if (obj->intersect(ray, t) && t < t_min) {
+                    if (item.ptr->intersect(ray, t) && t < t_min) {
                         t_min = t;
-                        hitObject = obj.get();
+                        hitObject = item.ptr;
                     }
                 }
             }
@@ -155,13 +154,12 @@ void renderRows(
                 glm::vec3 Pi_world = glm::vec3(ray.origin.position) + t_min * glm::normalize(glm::vec3(ray.direction));
                 glm::vec3 viewDir = glm::normalize(glm::vec3(ray.direction));
                 glm::vec3 Pi_local = glm::vec3(hitObject->invModel * glm::vec4(Pi_world, 1.0f));
-
                 glm::vec3 n_world;
 
+                // Verificação rápida usando o boolean do cache se for o hitObject
                 Mesh* meshPtr = dynamic_cast<Mesh*>(hitObject);
                 if (meshPtr) {
                     n_world = meshPtr->getNormalFromHit(bestMeshHit, Pi_local);
-
                     const Triangle* tri = bestMeshHit.hitTriangle;
                     if (tri) {
                         meshPtr->K_ambient = tri->K_ambient;
@@ -174,7 +172,8 @@ void renderRows(
                     n_world = hitObject->getNormal(Pi_local, viewDir);
                 }
 
-                color = shade(Pi_world, n_world, ray, lights, I_A, *hitObject, objects);
+                // Importante: Passar o Cache para o shade se for otimizá-lo também
+                color = shade(Pi_world, n_world, ray, lights, I_A, *hitObject, sceneCache);
             }
 
             framebuffer[l * nCol + c] = color;
@@ -470,6 +469,17 @@ int main(void)
         std::vector<std::thread> threads;
         int rowsPerThread = nLin / numThreads;
 
+        std::vector<ObjectCache> sceneCache;
+        sceneCache.reserve(objects.size());
+
+        for (auto& obj : objects) {
+            ObjectCache cache;
+            cache.ptr = obj.get();
+            cache.box = obj->getAABB();
+            cache.isPlane = (dynamic_cast<Plane*>(cache.ptr) != nullptr);
+            cache.isMesh = (dynamic_cast<Mesh*>(cache.ptr) != nullptr);
+            sceneCache.push_back(cache);
+        }
 
         std::fill(framebuffer.begin(), framebuffer.end(), I_A);
 
@@ -479,15 +489,10 @@ int main(void)
 
             threads.emplace_back(
                 renderRows,
-                yStart,
-                yEnd,
-                nCol,
-                nLin,
-                wJanela,
-                hJanela,
-                dJanela,
+                yStart, yEnd, nCol, nLin,
+                wJanela, hJanela, dJanela,
                 std::ref(camera),
-                std::cref(objects),
+                std::cref(sceneCache),
                 std::cref(lights),
                 std::cref(I_A),
                 std::ref(framebuffer)
