@@ -75,3 +75,10 @@ glm::vec3 Triangle::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) cons
 
 	return normalWorld;
 }
+
+AABB Triangle::getAABB() const {
+	AABB box;
+	box.min = glm::min(glm::vec3(v0.position), glm::min(glm::vec3(v1.position), glm::vec3(v2.position)));
+	box.max = glm::max(glm::vec3(v0.position), glm::max(glm::vec3(v1.position), glm::vec3(v2.position)));
+	return box;
+}

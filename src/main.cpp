@@ -8,7 +8,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "model/Point.h"
 #include "model/Ray.h"
-#include "model/LightSource.h"
 #include "model/Objects/Sphere.h"
 #include "model/Objects/Plane.h"
 #include "model/Objects/Cilinder.h"
@@ -169,7 +168,7 @@ int main(void)
 
 
         // light
-        LightSource light(glm::vec3(0.8f, 0.8f, 0.8f), Point(0.5f, 0.5f, -0.5f, 1.0f));
+        //LightSource light(glm::vec3(0.8f, 0.8f, 0.8f), Point(0.5f, 0.5f, -0.5f, 1.0f));
         glm::vec3 I_A = glm::vec3(0.4f, 0.4f, 0.4f); 
 
         Point eye(0.0f, 0.0f, 0.0f, 1.0f);
@@ -206,7 +205,7 @@ int main(void)
                     glm::vec3 Pi = glm::vec3(eye.position) + t_min * glm::normalize(glm::vec3(ray.direction));
                     glm::vec3 viewDir = glm::normalize(glm::vec3(ray.direction));
                     glm::vec3 n = hitObject->getNormal(Pi, viewDir);
-                    color = shade(Pi, n, ray, light, I_A, *hitObject, objects);
+                    //color = shade(Pi, n, ray, light, I_A, *hitObject, objects);
                 }
                 else {
                     color = I_A;

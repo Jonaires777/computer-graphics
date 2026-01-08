@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include "model/AABB.h"
 
 struct Object
 {
@@ -21,6 +22,7 @@ struct Object
 	virtual bool intersect(const struct Ray& ray, float& t_out) const = 0;
 	virtual glm::vec3 getNormal(const glm::vec3& point, const glm::vec3& rayDir) const = 0;
 	virtual ~Object() = default;
+	virtual AABB getAABB() const = 0;
 
 	void setTransform(const glm::mat4& M) {
 		model = M;

@@ -1,5 +1,7 @@
 #include "operations/Shading.h"
 #include "operations/Operations.h"
+#include "model/Objects/Plane.h" 
+#include "model/Objects/Mesh.h"
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
@@ -30,7 +32,7 @@ glm::vec3 shade(
         if (!light->illuminate(Pi, l, dist, attenuation))
             continue;
 
-        glm::vec3 shadow_origin = Pi + 1e-4f * l;
+        glm::vec3 shadow_origin = Pi + 1e-4f * n;
         Ray shadow_ray = {
             Point(shadow_origin.x, shadow_origin.y, shadow_origin.z, 1.0f),
             glm::vec4(l, 0.0f)
@@ -39,12 +41,42 @@ glm::vec3 shade(
         bool inShadow = false;
 
         for (auto& obj : sceneObjects) {
-            float t;
-            if (obj->intersect(shadow_ray, t)) {
-                if (t > 0.0f && t < dist) {
-                    inShadow = true;
-                    break;
+            // Se for o próprio objeto que acabamos de atingir, podemos ignorar 
+            // (ajuste opcional dependendo se seus objetos são convexos ou não)
+            if (obj.get() == &hitObject) continue;
+
+            // --- OTIMIZAÇÃO 1: AABB ---
+            // Ignoramos Planos no teste de AABB pois são infinitos
+            if (dynamic_cast<Plane*>(obj.get()) == nullptr) {
+                float tNear, tFar;
+                if (!obj->getAABB().intersect(shadow_ray, tNear, tFar)) {
+                    continue; // Pula o teste de interseção pesado
                 }
+
+                // Se a caixa estiver mais longe que a luz, não pode causar sombra
+                if (tNear > dist) continue;
+            }
+
+            // --- OTIMIZAÇÃO 2: INTERSEÇÃO E ANY HIT ---
+            float t;
+            bool hit = false;
+
+            // Tratamento especial para Mesh para usar o HitRecord otimizado
+            Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
+            if (meshPtr) {
+                HitRecord hr;
+                if (meshPtr->intersect(shadow_ray, hr)) {
+                    t = hr.t;
+                    hit = true;
+                }
+            }
+            else {
+                hit = obj->intersect(shadow_ray, t);
+            }
+
+            if (hit && t > 0.001f && t < dist) {
+                inShadow = true;
+                break; // ANY HIT: Encontramos um bloqueio, para o loop aqui!
             }
         }
 

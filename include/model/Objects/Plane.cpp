@@ -58,3 +58,11 @@ glm::vec3 Plane::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
 
     return normalWorld;
 }
+
+AABB Plane::getAABB() const {
+    AABB box;
+    float inf = std::numeric_limits<float>::infinity();
+    box.min = glm::vec3(-inf);
+    box.max = glm::vec3(inf);
+    return box;
+}

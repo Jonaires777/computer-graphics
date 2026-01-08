@@ -70,3 +70,11 @@ glm::vec3 Sphere::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
 
     return normalWorld;
 }
+
+AABB Sphere::getAABB() const {
+    AABB box;
+    glm::vec3 c = glm::vec3(center.position);
+    box.min = c - glm::vec3(radius);
+    box.max = c + glm::vec3(radius);
+    return box;
+}

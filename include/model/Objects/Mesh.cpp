@@ -1,6 +1,16 @@
 #include "model/Objects/Mesh.h"
 
-Mesh::Mesh(const std::vector<Triangle>& tris) : triangles(tris) {}
+Mesh::Mesh(const std::vector<Triangle>& tris) : triangles(tris) {
+    for (const auto& tri : triangles) {
+        boundingBox.min = glm::min(boundingBox.min, glm::vec3(tri.v0.position));
+        boundingBox.min = glm::min(boundingBox.min, glm::vec3(tri.v1.position));
+        boundingBox.min = glm::min(boundingBox.min, glm::vec3(tri.v2.position));
+
+        boundingBox.max = glm::max(boundingBox.max, glm::vec3(tri.v0.position));
+        boundingBox.max = glm::max(boundingBox.max, glm::vec3(tri.v1.position));
+        boundingBox.max = glm::max(boundingBox.max, glm::vec3(tri.v2.position));
+    }
+}
 
 // Implementação da classe base (apenas para compatibilidade de interface)
 bool Mesh::intersect(const Ray& ray, float& t_out) const {
@@ -19,8 +29,16 @@ glm::vec3 Mesh::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
     return glm::vec3(0.0f); // Não deve ser chamada diretamente para Meshes em Multithread
 }
 
-// VERSÃO SEGURA PARA THREADS
+// VERSÃO SEGURA PARA THREADS COM ACELERAÇÃO
 bool Mesh::intersect(const Ray& ray, HitRecord& hit) const {
+    // --- OTIMIZAÇÃO: TESTE DA CAIXA ---
+    // Se o raio não atingir nem a caixa externa, ignore todos os triângulos
+    float tNear, tFar;
+    if (!boundingBox.intersect(ray, tNear, tFar)) {
+        return false;
+    }
+    // ---------------------------------
+
     bool hasHit = false;
     for (const auto& tri : triangles) {
         float t_tri;
@@ -47,4 +65,8 @@ glm::vec3 Mesh::getNormalFromHit(const HitRecord& hit, const glm::vec3& Pi) cons
     // REMOVIDO: if (dot(nWorld, rayDir) > 0) nWorld = -nWorld;
     // A iluminação agora depende da orientação real do triângulo.
     return nWorld;
+}
+
+AABB Mesh::getAABB() const {
+    return boundingBox;
 }

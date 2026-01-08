@@ -3,6 +3,7 @@
 #include "model/Ray.h"
 #include "model/Point.h"
 #include <glm/glm.hpp>
+#include "model/AABB.h"
 
 struct Sphere : public Object
 {
@@ -20,6 +21,7 @@ struct Sphere : public Object
 
 	bool intersect(const Ray& ray, float& t_out) const override;
     glm::vec3 getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const override;
+    AABB getAABB() const override;
 
 private:
     bool intersectLocal(const Ray& localRay, float& t_out) const;

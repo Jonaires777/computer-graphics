@@ -1,4 +1,9 @@
-#version 120
+#version 330 core
+out vec4 FragColor;
+in vec2 TexCoord;
+
+uniform sampler2D u_Texture;
+
 void main() {
-    gl_FragColor = gl_Color;
+    FragColor = texture(u_Texture, TexCoord);
 }

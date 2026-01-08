@@ -3,6 +3,7 @@
 #include "model/Objects/Triangle.h"
 #include <vector>
 #include <limits>
+#include "model/AABB.h"
 
 struct HitRecord {
     float t = std::numeric_limits<float>::infinity();
@@ -12,6 +13,7 @@ struct HitRecord {
 class Mesh : public Object {
 public:
     std::vector<Triangle> triangles;
+    AABB boundingBox;
 
     Mesh(const std::vector<Triangle>& tris);
 
@@ -23,4 +25,5 @@ public:
     // Versões Otimizadas para Threads (Passando HitRecord explicitamente)
     bool intersect(const Ray& ray, HitRecord& hit) const;
     glm::vec3 getNormalFromHit(const HitRecord& hit, const glm::vec3& Pi) const;
+    virtual AABB getAABB() const override;
 };

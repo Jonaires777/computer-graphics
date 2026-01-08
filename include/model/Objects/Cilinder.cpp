@@ -151,5 +151,16 @@ glm::vec3 Cilinder::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) cons
     return normalWorld;
 }
 
+AABB Cilinder::getAABB() const {
+    glm::vec3 posBase = glm::vec3(baseCenter.position);
+    glm::vec3 posTop = posBase + glm::vec3(direction) * height;
+
+    // Expandimos a caixa para conter as duas extremidades considerando o raio
+    AABB box;
+    box.min = glm::min(posBase, posTop) - glm::vec3(radius);
+    box.max = glm::max(posBase, posTop) + glm::vec3(radius);
+    return box;
+}
+
 
 

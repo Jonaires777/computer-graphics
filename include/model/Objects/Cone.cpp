@@ -189,3 +189,14 @@ glm::vec3 Cone::getNormal(const glm::vec3& Pi, const glm::vec3& viewDir) const
 
 	return normalWorld;
 }
+
+AABB Cone::getAABB() const {
+	glm::vec3 posBase = glm::vec3(baseCenter.position);
+	glm::vec3 posApex = posBase + glm::vec3(direction) * height;
+
+	AABB box;
+	
+	box.min = glm::min(posBase - glm::vec3(baseRadius), posApex);
+	box.max = glm::max(posBase + glm::vec3(baseRadius), posApex);
+	return box;
+}

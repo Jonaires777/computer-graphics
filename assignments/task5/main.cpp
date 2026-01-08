@@ -117,14 +117,25 @@ void renderRows(
             glm::vec3 color = I_A;
             float t_min = FLT_MAX;
             Object* hitObject = nullptr;
-
             HitRecord bestMeshHit;
 
             for (auto& obj : objects) {
+
+                // --- TESTE DE ACELERAÇÃO AABB ---
+                if (dynamic_cast<Plane*>(obj.get()) == nullptr) {
+                    float tNear, tFar; 
+                    AABB box = obj->getAABB();
+                    if (!box.intersect(ray, tNear, tFar)) {
+                        continue;
+                    }
+                }
+                // --------------------------------
+
                 Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
 
                 if (meshPtr) {
                     HitRecord currentHit;
+                    // O intersect da Mesh já possui internamente o teste da sua própria boundingBox
                     if (meshPtr->intersect(ray, currentHit) && currentHit.t < t_min) {
                         t_min = currentHit.t;
                         hitObject = obj.get();
@@ -184,8 +195,8 @@ int main(void)
 #pragma endregion
 
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //you might want to do this when testing the game for shipping
 
 
@@ -222,11 +233,11 @@ int main(void)
 #pragma endregion
 
 	//shader loading example
-	//Shader s;
-	//s.loadShaderProgramFromFile(RESOURCES_PATH "vertex.vert", RESOURCES_PATH "fragment.frag");
-	//s.bind();
-
-	//GLint pixelColorLocation = glGetUniformLocation(s.id, "u_PixelColor");
+	Shader s;
+	s.loadShaderProgramFromFile(RESOURCES_PATH "vertex.vert", RESOURCES_PATH "fragment.frag");
+	s.bind();
+	GLint texLocation = glGetUniformLocation(s.id, "u_Texture");
+	glUniform1i(texLocation, 0);
 
     Camera camera(
         Point(0.0f, 0.0f, 0.0f, 1.0f),
@@ -390,6 +401,35 @@ int main(void)
     std::vector<glm::vec3> framebuffer(MAX_WIDHT* MAX_HEIGHT);
     static std::vector<unsigned char> pixelBuffer(MAX_WIDHT* MAX_HEIGHT * 3);
 
+    float vertices[] = {
+        // posições          // coords textura
+         1.0f,  1.0f, 0.0f,  1.0f, 0.0f,   // top right
+         1.0f, -1.0f, 0.0f,  1.0f, 1.0f,   // bottom right
+        -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,   // bottom left
+        -1.0f,  1.0f, 0.0f,  0.0f, 0.0f    // top left 
+    };
+    unsigned int indices[] = { 0, 1, 3, 1, 2, 3 };
+
+    unsigned int VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Atributo de Posição
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Atributo de Textura
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
 	while (!glfwWindowShouldClose(window))
 	{
 
@@ -421,8 +461,6 @@ int main(void)
 		glViewport(0, 0, 500, 500);
 		glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-
-		//s.bind();
 
 		float z = -dJanela;
 
@@ -480,22 +518,22 @@ int main(void)
 
         glDisable(GL_DEPTH_TEST);
 
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(-1, 1, -1, 1, -1, 1);
-
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-
-        glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, tex);
 
-        glBegin(GL_QUADS);
-        glTexCoord2f(0, 1); glVertex2f(-1, -1);
-        glTexCoord2f(1, 1); glVertex2f(1, -1);
-        glTexCoord2f(1, 0); glVertex2f(1, 1);
-        glTexCoord2f(0, 0); glVertex2f(-1, 1);
-        glEnd();
+        // ... (seu código de Ray Tracing e glTexSubImage2D continua igual)
+
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Usar o programa de shader moderno
+        s.bind();
+
+        // Ativar e bindar a textura
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex);
+
+        // Desenhar o quadrado usando o VAO
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 		glfwSwapBuffers(window);
 	}
