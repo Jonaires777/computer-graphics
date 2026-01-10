@@ -6,225 +6,676 @@
 #include <Eigen/Dense>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/constants.hpp>
 #include "model/Point.h"
 #include "model/Ray.h"
+#include "model/Light.h"
+#include "model/PointLight.h"
+#include "model/SpotLight.h"
 #include "model/Objects/Sphere.h"
 #include "model/Objects/Plane.h"
 #include "model/Objects/Cilinder.h"
 #include "model/Objects/Cone.h"
+#include "model/Objects/Triangle.h"
+#include "model/Objects/Mesh.h"
 #include "operations/Shading.h"
 #include "model/Objects/Object.h"
+#include "operations/Operations.h"
+#include "model/ObjectCache.h"
+#include "model/Tile.h"
+#include "model/Camera.h"
 #include <iostream>
+#include <thread>
+#include <atomic>
 
+using namespace Operations;
 
 #define MAX_HEIGHT 500
 #define MAX_WIDHT 500
 
 #define USE_GPU_ENGINE 0
+
+bool lightOn = true;
+bool triggerPick = false;
+bool cameraDirty = true;
+bool moveForward = false;
+bool moveBackward = false;
+bool moveLeft = false;
+bool moveRight = false;
+double lastX = 250, lastY = 250;
+bool firstMouse = true;
+
+
 extern "C"
 {
-	__declspec(dllexport) unsigned long NvOptimusEnablement = USE_GPU_ENGINE;
-	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = USE_GPU_ENGINE;
+    __declspec(dllexport) unsigned long NvOptimusEnablement = USE_GPU_ENGINE;
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = USE_GPU_ENGINE;
 }
 
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
+    if (action == GLFW_PRESS || action == GLFW_REPEAT)
+    {
+        switch (key) {
+        case GLFW_KEY_W: moveForward = true; break;
+        case GLFW_KEY_S: moveBackward = true; break;
+        case GLFW_KEY_A: moveLeft = true; break;
+        case GLFW_KEY_D: moveRight = true; break;
+        case GLFW_KEY_ESCAPE:
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            break;
+        }
+    }
+
+    if (action == GLFW_RELEASE)
+    {
+        switch (key) {
+        case GLFW_KEY_W: moveForward = false; break;
+        case GLFW_KEY_S: moveBackward = false; break;
+        case GLFW_KEY_A: moveLeft = false; break;
+        case GLFW_KEY_D: moveRight = false; break;
+        }
+    }
+}
+
+static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    Camera* camera = (Camera*)glfwGetWindowUserPointer(window);
+
+    static double lastX = xpos;
+    static double lastY = ypos;
+
+    float sensitivity = 0.002f;
+
+    float dx = (xpos - lastX) * sensitivity;
+    float dy = (lastY - ypos) * sensitivity;
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera->rotate(dx, dy);
+    cameraDirty = true;
+}
+
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        triggerPick = true;
+    }
+}
+
+void renderTiles(
+    const Tile& tile,
+    int nCol, int nLin,
+    float wJanela, float hJanela,
+    Camera& camera,
+    const std::vector<ObjectCache>& sceneCache,
+    const std::vector<Light*>& lights,
+    const glm::vec3& I_A,
+    std::vector<glm::vec3>& framebuffer
+) {
+    float Dx = wJanela / nCol;
+    float Dy = hJanela / nLin;
+
+    for (int l = tile.y; l < tile.y + tile.h; ++l) {
+        float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
+        for (int c = tile.x; c < tile.x + tile.w; ++c) {
+            float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
+            float px = x / (wJanela / 2.0f);
+            float py = y / (hJanela / 2.0f);
+
+            Ray ray = camera.generateRay(px, py);
+
+            glm::vec3 color = I_A;
+            float t_min = FLT_MAX;
+            Object* hitObject = nullptr;
+            HitRecord bestMeshHit;
+
+            for (const auto& item : sceneCache) {
+
+                if (!item.isPlane) {
+                    float tNear, tFar;
+                    if (!item.box.intersect(ray, tNear, tFar)) {
+                        continue;
+                    }
+                }
+
+                if (item.isMesh) {
+                    Mesh* meshPtr = static_cast<Mesh*>(item.ptr);
+                    HitRecord currentHit;
+                    if (meshPtr->intersectWithHitRecord(ray, currentHit) && currentHit.t < t_min) {
+                        t_min = currentHit.t;
+                        hitObject = meshPtr;
+                        bestMeshHit = currentHit;
+                    }
+                }
+                else {
+                    float t;
+                    if (item.ptr->intersect(ray, t) && t < t_min) {
+                        t_min = t;
+                        hitObject = item.ptr;
+                        bestMeshHit.hitTriangle = nullptr;
+                        bestMeshHit.t = t;
+                    }
+                }
+            }
+
+            if (hitObject) {
+                glm::vec3 Pi_world = glm::vec3(ray.origin.position) + t_min * glm::normalize(glm::vec3(ray.direction));
+                glm::vec3 viewDir = glm::normalize(glm::vec3(ray.direction));
+                glm::vec3 Pi_local = glm::vec3(hitObject->invModel * glm::vec4(Pi_world, 1.0f));
+                glm::vec3 n_world;
+
+                Mesh* meshPtr = dynamic_cast<Mesh*>(hitObject);
+                if (meshPtr) {
+                    n_world = meshPtr->getNormalFromHit(bestMeshHit, Pi_local);
+                    const Triangle* tri = bestMeshHit.hitTriangle;
+                    if (tri) {
+                        meshPtr->K_ambient = tri->K_ambient;
+                        meshPtr->K_diffuse = tri->K_diffuse;
+                        meshPtr->K_specular = tri->K_specular;
+                        meshPtr->shininess = tri->shininess;
+                    }
+                }
+                else {
+                    n_world = hitObject->getNormal(Pi_local, viewDir);
+                }
+
+                color = shade(Pi_world, n_world, ray, lights, I_A, *hitObject, sceneCache, bestMeshHit);
+            }
+
+            framebuffer[l * nCol + c] = color;
+        }
+    }
+}
+
+Object* pickObject(Camera& camera, const std::vector<ObjectCache>& sceneCache) {
+    Ray ray = camera.generateRay(0.0f, 0.0f); // Centro da tela
+
+    float t_min = FLT_MAX;
+    Object* hitObject = nullptr;
+
+    for (const auto& item : sceneCache) {
+        float t;
+        if (!item.isPlane) {
+            float tNear, tFar;
+            if (!item.box.intersect(ray, tNear, tFar)) continue;
+        }
+
+        if (item.isMesh) {
+            Mesh* meshPtr = static_cast<Mesh*>(item.ptr);
+            HitRecord hr;
+            if (meshPtr->intersectWithHitRecord(ray, hr)) {
+                if (hr.t < t_min) {
+                    t_min = hr.t;
+                    hitObject = item.ptr;
+                }
+            }
+        }
+        else {
+            if (item.ptr->intersect(ray, t)) {
+                if (t < t_min) {
+                    t_min = t;
+                    hitObject = item.ptr;
+                }
+            }
+        }
+    }
+    return hitObject;
 }
 
 int main(void)
 {
 
-	if (!glfwInit())
-		return -1;
+    if (!glfwInit())
+        return -1;
 
 
 #pragma region report opengl errors to std
-	//enable opengl debugging output.
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+    //enable opengl debugging output.
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #pragma endregion
 
 
-	//glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	//glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //you might want to do this when testing the game for shipping
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //you might want to do this when testing the game for shipping
 
 
-	GLFWwindow* window = window = glfwCreateWindow(MAX_HEIGHT, MAX_WIDHT, "GAME", NULL, NULL);
-	if (!window)
-	{
-		glfwTerminate();
-		return -1;
-	}
+    GLFWwindow* window = window = glfwCreateWindow(MAX_HEIGHT, MAX_WIDHT, "TASK_5", NULL, NULL);
+    if (!window)
+    {
+        glfwTerminate();
+        return -1;
+    }
 
-	glfwSetKeyCallback(window, key_callback);
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-	glfwMakeContextCurrent(window);
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	glfwSwapInterval(1);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPosCallback(window, mouse_callback);
 
+    glfwMakeContextCurrent(window);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+    glfwSwapInterval(1);
+
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, MAX_WIDHT, MAX_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 #pragma region report opengl errors to std
-	glEnable(GL_DEBUG_OUTPUT);
-	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-	glDebugMessageCallback(glDebugOutput, 0);
-	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, 0);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 #pragma endregion
 
-	//shader loading example
-	Shader s;
-	s.loadShaderProgramFromFile(RESOURCES_PATH "vertex.vert", RESOURCES_PATH "fragment.frag");
-	s.bind();
+    //shader loading example
+    Shader s;
+    s.loadShaderProgramFromFile(RESOURCES_PATH "vertex.vert", RESOURCES_PATH "fragment.frag");
+    s.bind();
+    GLint texLocation = glGetUniformLocation(s.id, "u_Texture");
+    glUniform1i(texLocation, 0);
 
-	GLint pixelColorLocation = glGetUniformLocation(s.id, "u_PixelColor");
+    Camera camera(
+        Point(0.0f, 0.0f, 0.0f, 1.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::radians(60.0f),
+        float(MAX_WIDHT) / float(MAX_HEIGHT),
+        0.3f
+    );
+
+    glfwSetWindowUserPointer(window, &camera);
+
+    // SCENE DEFINITION
+    std::vector<std::unique_ptr<Object>> objects;
+
+    /*objects.push_back(std::make_unique<Plane>(
+        Point(0.0f, -1.5f, 0.0f, 1.0f),
+        glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
+        glm::vec3(0.55f, 0.27f, 0.07f),
+        glm::vec3(0.55f, 0.27f, 0.07f),
+        glm::vec3(0.55f, 0.27f, 0.07f),
+        10.0f
+    ));*/
+
+    {
+        std::vector<Triangle> floorTris;
+        float size = 5.0f;
+        float height = -1.5f;
+
+        glm::vec3 v0(-size, height, size);
+        glm::vec3 v1(size, height, size);
+        glm::vec3 v2(size, height, -size);
+        glm::vec3 v3(-size, height, -size);
+
+        // Coordenadas UV: O repeatFactor define quantas vezes a madeira se repete
+        float repeatFactor = 2.0f;
+        glm::vec2 uv0(0.0f, 0.0f);
+        glm::vec2 uv1(repeatFactor, 0.0f);
+        glm::vec2 uv2(repeatFactor, repeatFactor);
+        glm::vec2 uv3(0.0f, repeatFactor);
+
+        glm::vec3 white(1.0f);
+
+        floorTris.push_back(Triangle(
+            Point(v0.x, v0.y, v0.z),
+            Point(v1.x, v1.y, v1.z),
+            Point(v2.x, v2.y, v2.z),
+            uv0, uv1, uv2,
+            white, white, white, 32.0f
+        ));
+
+        floorTris.push_back(Triangle(
+            Point(v0.x, v0.y, v0.z),
+            Point(v2.x, v2.y, v2.z),
+            Point(v3.x, v3.y, v3.z),
+            uv0, uv2, uv3,
+            white, white, white, 32.0f
+        ));
+
+        auto floorMesh = std::make_unique<Mesh>(floorTris);
+        floorMesh->loadTexture(RESOURCES_PATH "textures/chao_madeira.jpg");
+        objects.push_back(std::move(floorMesh));
+    }
+
+    objects.push_back(std::make_unique<Plane>(
+        Point(2.0f, -1.5f, 0.0f, 1.0f),
+        glm::vec4(-1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        10.0f
+    ));
+
+    objects.push_back(std::make_unique<Plane>(
+        Point(0.0f, -1.5f, -4.0f, 1.0f),
+        glm::vec4(0.0f, 0.0f, 1.0f, 0.0f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        10.0f
+    ));
+
+    objects.push_back(std::make_unique<Plane>(
+        Point(-2.0f, -1.5f, 0.0f, 1.0f),
+        glm::vec4(1.0f, 0.0f, 0.0f, 0.0f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        glm::vec3(0.686f, 0.933f, 0.933f),
+        10.0f
+    ));
+
+    objects.push_back(std::make_unique<Plane>(
+        Point(0.0f, 1.5f, 0.0f, 1.0f),
+        glm::vec4(0.0f, -1.0f, 0.0f, 0.0f),
+        glm::vec3(0.933f),
+        glm::vec3(0.933f),
+        glm::vec3(0.933f),
+        10.0f
+    ));
+
+    objects.push_back(std::make_unique<Cilinder>(
+        Point(0.0f, -1.5f, -2.0f, 1.0f),
+        0.05f,
+        0.9f,
+        glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
+        true, true,
+        glm::vec3(0.824f, 0.706f, 0.549f),
+        glm::vec3(0.824f, 0.706f, 0.549f),
+        glm::vec3(0.824f, 0.706f, 0.549f),
+        10.0f,
+        glm::vec3(0.824f, 0.706f, 0.549f),
+        glm::vec3(0.824f, 0.706f, 0.549f),
+        glm::vec3(0.824f, 0.706f, 0.549f),
+        10.0f
+    ));
+
+    objects.push_back(std::make_unique<Cone>(
+        Point(0.0f, -0.6f, -2.0f, 1.0f),
+        glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
+        1.5f,
+        0.9f,
+        true,
+        glm::vec3(0.0f, 1.0f, 0.498f),
+        glm::vec3(0.0f, 1.0f, 0.498f),
+        glm::vec3(0.0f, 1.0f, 0.498f),
+        10.0f,
+        glm::vec3(0.0f, 1.0f, 0.498f),
+        glm::vec3(0.0f, 1.0f, 0.498f),
+        glm::vec3(0.0f, 1.0f, 0.498f),
+        10.0f
+    ));
+
+    {
+        float a = 0.4f;
+        glm::vec3 center(0.0f, -1.5f + a / 2.0f, -1.65f);
+        float h = a / 2.0f;
+
+        std::vector<Triangle> cubeTris;
+
+        glm::vec3 v[8] = {
+            center + glm::vec3(-h, -h,  h),
+            center + glm::vec3(h, -h,  h),
+            center + glm::vec3(h,  h,  h),
+            center + glm::vec3(-h,  h,  h),
+            center + glm::vec3(-h, -h, -h),
+            center + glm::vec3(h, -h, -h),
+            center + glm::vec3(h,  h, -h),
+            center + glm::vec3(-h,  h, -h)
+        };
+
+        glm::vec3 color(1.0f, 1.0f, 1.0f);
+
+        auto addQuad = [&](int a, int b, int c, int d) {
+            glm::vec2 uvA(0.0f, 0.0f);
+            glm::vec2 uvB(1.0f, 0.0f);
+            glm::vec2 uvC(1.0f, 1.0f);
+            glm::vec2 uvD(0.0f, 1.0f);
+
+            cubeTris.push_back(Triangle(
+                Point(v[a].x, v[a].y, v[a].z),
+                Point(v[b].x, v[b].y, v[b].z),
+                Point(v[c].x, v[c].y, v[c].z),
+                uvA, uvB, uvC,
+                color, color, color, 32.0f
+            ));
+
+            cubeTris.push_back(Triangle(
+                Point(v[a].x, v[a].y, v[a].z),
+                Point(v[c].x, v[c].y, v[c].z),
+                Point(v[d].x, v[d].y, v[d].z),
+                uvA, uvC, uvD,
+                color, color, color, 32.0f
+            ));
+            };
+
+        addQuad(0, 1, 2, 3);
+        addQuad(1, 5, 6, 2);
+        addQuad(5, 4, 7, 6);
+        addQuad(4, 0, 3, 7);
+        addQuad(3, 2, 6, 7);
+        addQuad(4, 5, 1, 0);
+
+        objects.push_back(std::make_unique<Mesh>(cubeTris));
+    }
+
+    Mesh* giftMesh = static_cast<Mesh*>(objects.back().get());
+
+    giftMesh->loadTexture(RESOURCES_PATH "textures/presente.jpg");
+
+    objects.push_back(std::make_unique<Sphere>(
+        Point(0.0f, 0.95f, -2.0f, 1.0f),
+        0.05f,
+        glm::vec3(0.854f, 0.647f, 0.125f),
+        glm::vec3(0.854f, 0.647f, 0.125f),
+        glm::vec3(0.854f, 0.647f, 0.125f),
+        10.0f
+    ));
+
+    Object* interruptorPtr = nullptr;
+    {
+        float s = 0.08f;
+        glm::vec3 p(-1.92f, 0.0f, 0.0f);
+
+        std::vector<Triangle> swTris;
+
+        glm::vec3 v[8] = {
+            p + glm::vec3(-s, -s,  s), p + glm::vec3(s, -s,  s), p + glm::vec3(s,  s,  s), p + glm::vec3(-s,  s,  s),
+            p + glm::vec3(-s, -s, -s), p + glm::vec3(s, -s, -s), p + glm::vec3(s,  s, -s), p + glm::vec3(-s,  s, -s)
+        };
+
+        glm::vec3 blackColor(0.0f, 0.0f, 0.0f);
+
+        glm::vec2 uv(0.0f, 0.0f);
+
+        auto addQ = [&](int a, int b, int c, int d) {
+            swTris.push_back(Triangle(
+                Point(v[a].x, v[a].y, v[a].z, 1.0f),
+                Point(v[b].x, v[b].y, v[b].z, 1.0f),
+                Point(v[c].x, v[c].y, v[c].z, 1.0f),
+                uv, uv, uv,
+                blackColor, blackColor, blackColor, 32.0f));
+
+            swTris.push_back(Triangle(
+                Point(v[a].x, v[a].y, v[a].z, 1.0f),
+                Point(v[c].x, v[c].y, v[c].z, 1.0f),
+                Point(v[d].x, v[d].y, v[d].z, 1.0f),
+                uv, uv, uv,
+                blackColor, blackColor, blackColor, 32.0f));
+            };
+
+        addQ(0, 1, 2, 3); addQ(1, 5, 6, 2); addQ(5, 4, 7, 6);
+        addQ(4, 0, 3, 7); addQ(3, 2, 6, 7); addQ(4, 5, 1, 0);
+
+        auto swMesh = std::make_unique<Mesh>(swTris);
+        swMesh->model = glm::mat4(1.0f);
+        interruptorPtr = swMesh.get();
+        objects.push_back(std::move(swMesh));
+    }
+
+    SpotLight* spot = new SpotLight(
+        glm::vec3(1.0f),
+        Point(-1.0f, 1.4f, -0.2f, 1.0f),
+        glm::vec3(0.0f, -1.0f, 0.0f),
+        60.0f
+    );
+
+    PointLight point(glm::vec3(0.7f, 0.7f, 0.7f), Point(-1.0f, 1.4f, -0.2f, 1.0f));
+
+    std::vector<Light*> lights;
+    //lights.push_back(&point);                                                                                         
+    lights.push_back(spot);
+
+    glm::vec3 I_A(0.3f, 0.3f, 0.3f);
+
+    std::vector<glm::vec3> framebuffer(MAX_WIDHT * MAX_HEIGHT);
+    static std::vector<unsigned char> pixelBuffer(MAX_WIDHT * MAX_HEIGHT * 3);
+
+    float vertices[] = {
+         1.0f,  1.0f, 0.0f,  1.0f, 0.0f,
+         1.0f, -1.0f, 0.0f,  1.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,
+        -1.0f,  1.0f, 0.0f,  0.0f, 0.0f
+    };
+    unsigned int indices[] = { 0, 1, 3, 1, 2, 3 };
+
+    unsigned int VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Atributo de Posição
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Atributo de Textura
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    double lastTime = glfwGetTime();
+    int nbFrames = 0;
 
     while (!glfwWindowShouldClose(window))
     {
+
+        glfwPollEvents();
+
+        float speed = 0.1f;
+        if (moveForward)  camera.moveForward(speed);
+        if (moveBackward) camera.moveForward(-speed);
+        if (moveLeft)     camera.moveRight(-speed);
+        if (moveRight)    camera.moveRight(speed);
+
+        bool moving = moveForward || moveBackward || moveLeft || moveRight;
+        cameraDirty |= moving;
+
+        std::vector<ObjectCache> sceneCache;
+        sceneCache.reserve(objects.size());
+        for (auto& obj : objects) {
+            ObjectCache cache;
+            cache.ptr = obj.get();
+            cache.box = obj->getAABB();
+            cache.isPlane = (dynamic_cast<Plane*>(cache.ptr) != nullptr);
+            cache.isMesh = (dynamic_cast<Mesh*>(cache.ptr) != nullptr);
+            sceneCache.push_back(cache);
+        }
+
+        if (triggerPick) {
+            Object* clicked = pickObject(camera, sceneCache);
+            if (clicked == interruptorPtr) {
+                lightOn = !lightOn;
+                spot->intensity = lightOn ? glm::vec3(1.0f) : glm::vec3(0.0f);
+                cameraDirty = true;
+            }
+            triggerPick = false;
+        }
+
+        if (cameraDirty) {
+            cameraDirty = false;
+
             float wJanela = 0.6f;
             float hJanela = 0.6f;
-        float dJanela = 0.3f;
-        int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
+            int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
 
-        std::vector<std::unique_ptr<Object>> objects;
+            std::fill(framebuffer.begin(), framebuffer.end(), I_A);
 
-		// background
-        objects.push_back(std::make_unique<Plane>(
-            Point(0.0f, 0.0f, -2.0f, 1.0f),
-            glm::vec4(0, 0, 1, 0),
-            glm::vec3(0.3f, 0.3f, 0.7f),
-            glm::vec3(0.3f, 0.3f, 0.7f),
-            glm::vec3(0.0f),
-            1.0f));
+            int tileSize = 32;
+            std::vector<Tile> tiles;
+            for (int y = 0; y < MAX_HEIGHT; y += tileSize) {
+                for (int x = 0; x < MAX_WIDHT; x += tileSize) {
+                    Tile t = { x, y, std::min(tileSize, MAX_WIDHT - x), std::min(tileSize, MAX_HEIGHT - y) };
+                    tiles.push_back(t);
+                }
+            }
 
-        // floor
-        objects.push_back(std::make_unique<Plane>(
-            Point(0.0f, -0.4f, -1.0f, 1.0f),
-            glm::vec4(0, 1, 0, 0),
-            glm::vec3(0.2f, 0.7f, 0.2f),
-            glm::vec3(0.2f, 0.7f, 0.2f),
-            glm::vec3(0.0f),
-            1.0f));
+            std::atomic<int> nextTileIndex(0);
+            int numThreads = std::max(1, (int)std::thread::hardware_concurrency());
+            std::vector<std::thread> workers;
 
-        // Cabeça
-        float headRadius = 0.4f;
-        Point headCenter(0.0f, 0.0f, -1.3f, 1.0f);
-        glm::vec3 headColor(0.9f, 0.8f, 0.6f);
+            for (int i = 0; i < numThreads; ++i) {
+                workers.emplace_back([&]() {
+                    while (true) {
+                        int index = nextTileIndex.fetch_add(1);
+                        if (index >= tiles.size()) break;
+                        renderTiles(tiles[index], nCol, nLin, wJanela, hJanela, camera, sceneCache, lights, I_A, framebuffer);
+                    }
+                    });
+            }
+            for (auto& w : workers) w.join();
 
-        objects.push_back(std::make_unique<Sphere>(
-            headCenter,
-            headRadius,
-            headColor, headColor, headColor, 10.0f));
+            for (int i = 0; i < MAX_WIDHT * MAX_HEIGHT; i++) {
+                pixelBuffer[i * 3 + 0] = (unsigned char)(glm::clamp(framebuffer[i].r, 0.0f, 1.0f) * 255.0f);
+                pixelBuffer[i * 3 + 1] = (unsigned char)(glm::clamp(framebuffer[i].g, 0.0f, 1.0f) * 255.0f);
+                pixelBuffer[i * 3 + 2] = (unsigned char)(glm::clamp(framebuffer[i].b, 0.0f, 1.0f) * 255.0f);
+            }
 
-        // eyes
-        float eyeRadius = 0.05f;
-        float eyeOffsetY = 0.10f;      
-        float eyeOffsetX = 0.13f;       
-        float eyeOffsetZ = -0.9f;
-        glm::vec3 eyeColor(0.0f, 0.0f, 0.0f);
-
-        Point leftEye(-eyeOffsetX, eyeOffsetY, eyeOffsetZ, 1.0f);
-        Point rightEye(eyeOffsetX, eyeOffsetY, eyeOffsetZ, 1.0f);
-
-        objects.push_back(std::make_unique<Sphere>(leftEye, eyeRadius, eyeColor, eyeColor, eyeColor, 10.0f));
-        objects.push_back(std::make_unique<Sphere>(rightEye, eyeRadius, eyeColor, eyeColor, eyeColor, 10.0f));
-
-        // mouth
-
-		// TODO: improve mouth design
-        glm::vec3 mouthColor(0.8f, 0.2f, 0.2f);
-        int mouthSegments = 6;
-        float mouthRadius = 0.2f;
-        float mouthY = -0.12f;
-        float mouthZ = -0.85f;
-
-        for (int i = 0; i < mouthSegments; i++) {
-            float angle = glm::pi<float>() * (i / float(mouthSegments - 1)) - glm::half_pi<float>();
-            float x = 0.15f * cos(angle) - 0.01f;
-            float y = mouthY - 0.05f * sin(angle);
-            Point p(x, y, mouthZ, 1.0f);
-            objects.push_back(std::make_unique<Sphere>(p, 0.03f, mouthColor, mouthColor, mouthColor, 10.0f));
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, MAX_WIDHT, MAX_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer.data());
         }
-
-        // hat
-        glm::vec4 cone_dir = glm::normalize(glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
-        glm::vec3 headTop = glm::vec3(headCenter.position) + glm::vec3(0.0f, headRadius - 0.1f, 0.0f);
-        Point coneBaseCenter(headTop.x, headTop.y, headTop.z, 1.0f);
-
-        float coneBaseRadius = 0.45f;
-        float coneHeight = 0.5f;
-        glm::vec3 coneColor(0.6f, 0.3f, 0.1f);
-
-        objects.push_back(std::make_unique<Cone>(
-            coneBaseCenter,
-            cone_dir,
-            coneHeight,
-            coneBaseRadius,
-            true,
-            coneColor, coneColor, coneColor, 10.0f,
-            coneColor, coneColor, coneColor, 10.0f
-        ));
-
-
-        // light
-        //LightSource light(glm::vec3(0.8f, 0.8f, 0.8f), Point(0.5f, 0.5f, -0.5f, 1.0f));
-        glm::vec3 I_A = glm::vec3(0.4f, 0.4f, 0.4f); 
-
-        Point eye(0.0f, 0.0f, 0.0f, 1.0f);
-
-        float Dx = wJanela / (float)nCol;
-        float Dy = hJanela / (float)nLin;
 
         glViewport(0, 0, 500, 500);
-        glClearColor(0.39f, 0.39f, 0.39f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
         s.bind();
-
-        float z = -dJanela;
-        for (int l = 0; l < nLin; l++) {
-            float y = hJanela / 2.0f - Dy / 2.0f - l * Dy;
-            for (int c = 0; c < nCol; c++) {
-                float x = -wJanela / 2 + Dx / 2.0f + c * Dx;
-                Ray ray(eye, glm::vec4(x, y, z, 0.0f));
-
-                glm::vec3 color(0.0f);
-                float t_min = FLT_MAX;
-                Object* hitObject = nullptr;
-
-                for (auto& obj : objects) {
-                    float t;
-                    if (obj->intersect(ray, t) && t < t_min) {
-                        t_min = t;
-                        hitObject = obj.get();
-                    }
-                }
-
-                if (hitObject) {
-                    glm::vec3 Pi = glm::vec3(eye.position) + t_min * glm::normalize(glm::vec3(ray.direction));
-                    glm::vec3 viewDir = glm::normalize(glm::vec3(ray.direction));
-                    glm::vec3 n = hitObject->getNormal(Pi, viewDir);
-                    //color = shade(Pi, n, ray, light, I_A, *hitObject, objects);
-                }
-                else {
-                    color = I_A;
-                }
-
-                glUniform3f(pixelColorLocation, color.r, color.g, color.b);
-                glBegin(GL_POINTS);
-                glVertex2f(x / (wJanela / 2.0f), y / (hJanela / 2.0f));
-                glEnd();
-            }
-        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
+
+        double currentTime = glfwGetTime();
+        nbFrames++;
+
+        if (currentTime - lastTime >= 1.0) {
+            double msPerFrame = 1000.0 / double(nbFrames);
+
+            char title[256];
+            sprintf(title, "FPS: %d  (%.2f ms/frame)", nbFrames, msPerFrame);
+
+            glfwSetWindowTitle(window, title);
+
+            nbFrames = 0;
+            lastTime += 1.0;
+        }
     }
 
-	//there is no need to call the clear function for the libraries since the os will do that for us.
-	//by calling this functions we are just wasting time.
-	//glfwDestroyWindow(window);
-	//glfwTerminate();
-	return 0;
+    //there is no need to call the clear function for the libraries since the os will do that for us.
+    //by calling this functions we are just wasting time.
+    //glfwDestroyWindow(window);
+    //glfwTerminate();
+    return 0;
 }

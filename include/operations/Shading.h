@@ -3,6 +3,7 @@
 #include "model/Light.h"
 #include "model/Objects/Object.h"
 #include "model/ObjectCache.h"
+#include "model/Objects/Mesh.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
@@ -14,5 +15,6 @@ glm::vec3 shade(
     const std::vector<Light*>& lights,
     const glm::vec3& I_A,
     const Object& hitObject,
-    const std::vector<ObjectCache>& sceneCache
+    const std::vector<ObjectCache>& sceneCache,
+    const HitRecord& mainHit
 );
