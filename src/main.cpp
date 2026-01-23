@@ -1090,7 +1090,7 @@ int main(void)
 
     // Luz da Janela - Transformado: (0.0, 0.2, 6.0)  (3.0, 1.7, 13.0)
     PointLight* windowLight = new PointLight(
-        glm::vec3(0.4f, 0.4f, 0.4f),
+        glm::vec3(0.1f, 0.1f, 0.1f),
         Point(3.0f, 1.7f, 13.0f, 1.0f)
     );
 
