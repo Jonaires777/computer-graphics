@@ -42,11 +42,17 @@ Cilinder::Cilinder(
 
 bool Cilinder::intersect(const Ray& ray, float& t_out) const
 {
-    Ray localRay = transformRay(ray, invModel);
-    return intersectLocal(localRay, t_out);
+    int dummy;
+    return intersect(ray, t_out, dummy);
 }
 
-bool Cilinder::intersectLocal(const Ray& ray, float& t_out) const {
+bool Cilinder::intersect(const Ray& ray, float& t_out, int& hitPart) const
+{
+    Ray localRay = transformRay(ray, invModel);
+    return intersectLocal(localRay, t_out, hitPart);
+}
+
+bool Cilinder::intersectLocal(const Ray& ray, float& t_out, int& hitPart) const {
     glm::vec3 dc = glm::normalize(glm::vec3(direction));
     glm::vec3 dr = glm::normalize(glm::vec3(ray.direction));
     glm::vec3 w = glm::vec3(ray.origin.position) - glm::vec3(baseCenter.position);
@@ -57,7 +63,7 @@ bool Cilinder::intersectLocal(const Ray& ray, float& t_out) const {
 
     float delta = b * b - 4 * a * c;
     float t_cylinder = std::numeric_limits<float>::infinity();
-    lastHitPart = 0;
+    hitPart = 0; 
 
     if (delta >= 0.0f)
     {
@@ -117,27 +123,50 @@ bool Cilinder::intersectLocal(const Ray& ray, float& t_out) const {
     }
 
     t_out = std::min({ t_cylinder, t_base, t_top });
-    if (t_out == t_cylinder) lastHitPart = 0;
-    else if (t_out == t_base) lastHitPart = 1;
-    else if (t_out == t_top) lastHitPart = 2;
+    if (t_out == t_cylinder) hitPart = 0;
+    else if (t_out == t_base) hitPart = 1;
+    else if (t_out == t_top) hitPart = 2;
 
     return t_out < std::numeric_limits<float>::infinity();
 }
 
 glm::vec3 Cilinder::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const
 {
+    // Esta versão recalcula qual parte foi atingida (menos eficiente mas thread-safe)
+    glm::vec3 Pi_local = glm::vec3(invModel * glm::vec4(Pi, 1.0f));
+    glm::vec3 dc = glm::normalize(glm::vec3(direction));
+    glm::vec3 pc = glm::vec3(baseCenter.position);
+
+    // Determina qual parte foi atingida baseado na posição
+    int hitPart = 0;
+    float proj = glm::dot(Pi_local - pc, dc);
+
+    if (std::abs(proj) < 1e-4f && hasBase)
+        hitPart = 1; // base
+    else if (std::abs(proj - height) < 1e-4f && hasTop)
+        hitPart = 2; // topo
+    else
+        hitPart = 0; // lateral
+
+    return getNormal(Pi, rayDir, hitPart);
+}
+
+glm::vec3 Cilinder::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir, int hitPart) const
+{
+    glm::vec3 Pi_local = glm::vec3(invModel * glm::vec4(Pi, 1.0f));
+
     glm::vec3 dc = glm::normalize(glm::vec3(direction));
     glm::vec3 pc = glm::vec3(baseCenter.position);
 
     glm::vec3 normalLocal;
 
-    if (lastHitPart == 1)          // base
+    if (hitPart == 1)          // base
         normalLocal = -dc;
-    else if (lastHitPart == 2)     // topo
+    else if (hitPart == 2)     // topo
         normalLocal = dc;
-    else                           // lateral
+    else                       // lateral
     {
-        glm::vec3 v = Pi - pc;
+        glm::vec3 v = Pi_local - pc;
         glm::vec3 proj = glm::dot(v, dc) * dc;
         normalLocal = glm::normalize(v - proj);
     }

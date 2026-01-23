@@ -37,11 +37,13 @@ struct Cilinder : public Object
 		const glm::vec3& Ks_caps = glm::vec3(1.0f),
 		float shin_caps = 32.0f
 	);
-
+		
 	bool intersect(const Ray& ray, float& t_out) const override;
+	bool intersect(const Ray& ray, float& t_out, int& hitPart) const;
 	glm::vec3 getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const override;
+	glm::vec3 getNormal(const glm::vec3& Pi, const glm::vec3& rayDir, int hitPart) const;
 	AABB getAABB() const override;
 
 private:
-	bool intersectLocal(const Ray& localRay, float& t_out) const;
+	bool intersectLocal(const Ray& localRay, float& t_out, int& hitPart) const;
 };

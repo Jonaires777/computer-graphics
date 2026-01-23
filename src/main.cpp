@@ -282,8 +282,9 @@ int main(void)
     GLint texLocation = glGetUniformLocation(s.id, "u_Texture");
     glUniform1i(texLocation, 0);
 
+    // CÂMERA - Transformada: (0,0,0) para (3,1.5,7)
     Camera camera(
-        Point(0.0f, 0.0f, 0.0f, 1.0f),
+        Point(3.0f, 1.5f, 7.0f, 1.0f),
         glm::vec3(0.0f, 0.0f, -1.0f),
         glm::vec3(0.0f, 1.0f, 0.0f),
         glm::radians(60.0f),
@@ -293,20 +294,20 @@ int main(void)
 
     glfwSetWindowUserPointer(window, &camera);
 
-    // SCENE DEFINITION
+    // SCENE DEFINITION - TODAS AS COORDENADAS TRANSFORMADAS
     std::vector<std::unique_ptr<Object>> objects;
 
+    // CHÃO - Transformado: Y=-1.5 para Y=0
     {
         std::vector<Triangle> floorTris;
         float size = 7.0f;
-        float height = -1.5f;
+        float height = 0.0f;
 
-        glm::vec3 v0(-size, height, size);
-        glm::vec3 v1(size, height, size);
-        glm::vec3 v2(size, height, -size);
-        glm::vec3 v3(-size, height, -size);
+        glm::vec3 v0(0.0f, height, 14.0f);
+        glm::vec3 v1(10.0f, height, 14.0f);
+        glm::vec3 v2(10.0f, height, 0.0f);
+        glm::vec3 v3(0.0f, height, 0.0f);
 
-        // Coordenadas UV: O repeatFactor define quantas vezes a madeira se repete
         float repeatFactor = 2.0f;
         glm::vec2 uv0(0.0f, 0.0f);
         glm::vec2 uv1(repeatFactor, 0.0f);
@@ -340,14 +341,14 @@ int main(void)
     float wallSize = 10.0f;
     float wallHeight = 1.5f;
 
-    // 1. Parede Direita (X = 5.0)
+    // PAREDE DIREITA - Transformada: X=3.0 para X=6.0
     {
         std::vector<Triangle> wallTris;
-        float wallX = 3.0f; 
+        float wallX = 6.0f;
         float zSize = 10.0f;
 
-        Point p1(wallX, -wallHeight, zSize), p2(wallX, -wallHeight, -zSize);
-        Point p3(wallX, wallHeight, -zSize), p4(wallX, wallHeight, zSize);
+        Point p1(wallX, 0.0f, 17.0f), p2(wallX, 0.0f, 0.0f);
+        Point p3(wallX, 3.0f, 0.0f), p4(wallX, 3.0f, 17.0f);
 
         float rf = 3.0f;
         glm::vec2 uv1(0, 0), uv2(rf, 0), uv3(rf, rf), uv4(0, rf);
@@ -360,14 +361,14 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // 2. Parede Esquerda (X = -5.0)
+    // PAREDE ESQUERDA - Transformada: X=-3.0 para X=0.0
     {
         std::vector<Triangle> wallTris;
-        float wallX = -3.0f;
+        float wallX = 0.0f;
         float zSize = 10.0f;
 
-        Point p1(wallX, -wallHeight, -zSize), p2(wallX, -wallHeight, zSize);
-        Point p3(wallX, wallHeight, zSize), p4(wallX, wallHeight, -zSize);
+        Point p1(wallX, 0.0f, 0.0f), p2(wallX, 0.0f, 17.0f);
+        Point p3(wallX, 3.0f, 17.0f), p4(wallX, 3.0f, 0.0f);
 
         float rf = 3.0f;
         glm::vec2 uv1(0, 0), uv2(rf, 0), uv3(rf, rf), uv4(0, rf);
@@ -380,14 +381,14 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // 3. Parede de Fundo (Z = -10.0)
+    // PAREDE DE FUNDO - Transformada: Z=-7.0 para Z=0.0
     {
         std::vector<Triangle> wallTris;
-        float posZ = -7.0f;
+        float posZ = 0.0f;
         float limitX = 3.0f;
 
-        Point p1(-limitX, -wallHeight, posZ), p2(limitX, -wallHeight, posZ);
-        Point p3(limitX, wallHeight, posZ), p4(-limitX, wallHeight, posZ);
+        Point p1(0.0f, 0.0f, posZ), p2(6.0f, 0.0f, posZ);
+        Point p3(6.0f, 3.0f, posZ), p4(0.0f, 3.0f, posZ);
 
         float rf = 3.0f;
         glm::vec2 uv1(0, 0), uv2(rf, 0), uv3(rf, rf), uv4(0, rf);
@@ -400,14 +401,14 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // 4. Parede de Trás (Z = 10.0)
+    // PAREDE DE TRÁS - Transformada: Z=7.0 para Z=14.0
     {
         std::vector<Triangle> wallTris;
-        float posZ = 7.0f;
+        float posZ = 14.0f;
         float limitX = 3.0f;
 
-        Point p1(-limitX, -wallHeight, posZ), p2(limitX, -wallHeight, posZ);
-        Point p3(limitX, wallHeight, posZ), p4(-limitX, wallHeight, posZ);
+        Point p1(0.0f, 0.0f, posZ), p2(6.0f, 0.0f, posZ);
+        Point p3(6.0f, 3.0f, posZ), p4(0.0f, 3.0f, posZ);
 
         float rf = 3.0f;
         glm::vec2 uv1(0, 0), uv2(rf, 0), uv3(rf, rf), uv4(0, rf);
@@ -420,14 +421,15 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
+    // TETO SEM TEXTURA - Transformado: Y=1.5 para Y=3.0
     {
         std::vector<Triangle> roofTris;
         float limitX = 3.0f;
         float limitZ = 7.0f;
-        float h = 1.5f;
+        float h = 3.0f;
 
-        Point p1(-limitX, h, limitZ), p2(limitX, h, limitZ);
-        Point p3(limitX, h, -limitZ), p4(-limitX, h, -limitZ);
+        Point p1(0.0f, h, 14.0f), p2(6.0f, h, 14.0f);
+        Point p3(6.0f, h, 0.0f), p4(0.0f, h, 0.0f);
 
         glm::vec2 uv(0, 0);
         glm::vec3 roofColor(0.933f);
@@ -438,9 +440,9 @@ int main(void)
         objects.push_back(std::make_unique<Mesh>(roofTris));
     }
 
-    // --- ÁRVORE (TRONCO) ---
+    // ÁRVORE (TRONCO) - Transformado: (-2.0, -1.5, -4.0) para (1.0, 0.0, 3.0)
     objects.push_back(std::make_unique<Cilinder>(
-        Point(-2.0f, -1.5f, -4.0f, 1.0f), 
+        Point(1.0f, 0.0f, 3.0f, 1.0f),
         0.05f,
         0.9f,
         glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
@@ -455,9 +457,9 @@ int main(void)
         10.0f
     ));
 
-    // --- ÁRVORE (FOLHAS/CONE)
+    // ÁRVORE (FOLHAS/CONE)
     objects.push_back(std::make_unique<Cone>(
-        Point(-2.0f, -0.6f, -4.0f, 1.0f), 
+        Point(1.0f, 0.9f, 3.0f, 1.0f),
         glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
         1.5f,
         0.9f,
@@ -472,9 +474,9 @@ int main(void)
         10.0f
     ));
 
-    // --- ESTRELA (ESFERA NO TOPO) ---
+    // ESTRELA (ESFERA NO TOPO)
     objects.push_back(std::make_unique<Sphere>(
-        Point(-2.0f, 0.95f, -4.0f, 1.0f),
+        Point(1.0f, 2.45f, 3.0f, 1.0f),
         0.05f,
         glm::vec3(0.854f, 0.647f, 0.125f),
         glm::vec3(0.854f, 0.647f, 0.125f),
@@ -482,9 +484,10 @@ int main(void)
         10.0f
     ));
 
+    // PRESENTE (CUBO
     {
         float a = 0.4f;
-        glm::vec3 center(-2.0f, -1.5f + a / 2.0f, -3.6f);
+        glm::vec3 center(1.0f, 0.2f, 3.4f);
         float h = a / 2.0f;
 
         std::vector<Triangle> cubeTris;
@@ -512,13 +515,14 @@ int main(void)
     Mesh* giftMesh = static_cast<Mesh*>(objects.back().get());
     giftMesh->loadTexture(RESOURCES_PATH "textures/presente.jpg");
 
+    // INTERRUPTOR - Transformado: (-2.98, 0.0, 2.0) para (0.02, 1.5, 9.0)
     Object* interruptorPtr = nullptr;
     {
-        float sWidth = 0.15f;  
-        float sHeight = 0.28f; 
-        float sDepth = 0.02f; 
+        float sWidth = 0.15f;
+        float sHeight = 0.28f;
+        float sDepth = 0.02f;
 
-        glm::vec3 p(-2.98f, 0.0f, 2.0f);
+        glm::vec3 p(0.02f, 1.5f, 9.0f);
 
         std::vector<Triangle> swTris;
         glm::vec3 white(1.0f);
@@ -528,12 +532,12 @@ int main(void)
         Point p3(p.x, p.y + sHeight / 2, p.z - sWidth / 2);
         Point p4(p.x, p.y + sHeight / 2, p.z + sWidth / 2);
 
-        float cropX = 0.20f; 
+        float cropX = 0.20f;
         float cropY = 0.05f;
 
-        glm::vec2 uv0(cropX, cropY);          
-        glm::vec2 uv1(1.0f - cropX, cropY);  
-        glm::vec2 uv2(1.0f - cropX, 1.0f - cropY); 
+        glm::vec2 uv0(cropX, cropY);
+        glm::vec2 uv1(1.0f - cropX, cropY);
+        glm::vec2 uv2(1.0f - cropX, 1.0f - cropY);
         glm::vec2 uv3(cropX, 1.0f - cropY);
 
         swTris.push_back(Triangle(p1, p2, p3, uv0, uv1, uv2, white, white, white, 32.0f));
@@ -545,6 +549,7 @@ int main(void)
         objects.push_back(std::move(swMesh));
     }
 
+    // CONTROLE REMOTO - Transformado: (-0.9, -0.9, 1.9) para (2.1, 0.6, 8.9)
     Object* remoteControlPtr = nullptr;
     bool tvOn = true;
 
@@ -552,9 +557,9 @@ int main(void)
         std::vector<Triangle> remoteTris;
         glm::vec3 white(0.0f);
 
-        float rcX = -0.9f;
-        float rcY = -0.9f;
-        float rcZ = 1.9f;
+        float rcX = 2.1f;
+        float rcY = 0.6f;
+        float rcZ = 8.9f;
 
         auto addRCBox = [&](glm::vec3 min, glm::vec3 max) {
             glm::vec3 v[8] = {
@@ -562,7 +567,6 @@ int main(void)
                 {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z}
             };
 
-            // Lateral: Usaremos um pixel neutro da textura (preto)
             glm::vec2 uvSide(0.1f, 0.9f);
 
             float uMin = 0.05f;
@@ -585,12 +589,12 @@ int main(void)
                 remoteTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), u0, u2, u3, white, white, white, 10.0f));
                 };
 
-            addQ(0, 1, 2, 3, false); // Frente
-            addQ(1, 5, 6, 2, false); // Direita
-            addQ(5, 4, 7, 6, false); // Fundo
-            addQ(4, 0, 3, 7, false); // Esquerda
-            addQ(3, 2, 6, 7, true);  // TOPO corrigido
-            addQ(4, 5, 1, 0, false); // Baixo
+            addQ(0, 1, 2, 3, false);
+            addQ(1, 5, 6, 2, false);
+            addQ(5, 4, 7, 6, false);
+            addQ(4, 0, 3, 7, false);
+            addQ(3, 2, 6, 7, true);
+            addQ(4, 5, 1, 0, false);
             };
 
         addRCBox(glm::vec3(rcX, rcY, rcZ), glm::vec3(rcX + 0.2f, rcY + 0.018f, rcZ + 0.08f));
@@ -603,6 +607,7 @@ int main(void)
         objects.push_back(std::move(remoteMesh));
     }
 
+    // SOFÁ
     {
         std::vector<Triangle> sofaTris;
         glm::vec3 whiteColor(1.0f);
@@ -625,51 +630,170 @@ int main(void)
                     uv0, uv2, uv3, whiteColor, whiteColor, whiteColor, 10.0f));
                 };
 
-            addTriangles(0, 1, 2, 3, { 1.0f, 1.0f });        // Frente (X, Y)
-            addTriangles(1, 5, 6, 2, { texRepeatZ, 1.0f }); // Direita (Z, Y)
-            addTriangles(5, 4, 7, 6, { 1.0f, 1.0f });        // Fundo (X, Y)
-            addTriangles(4, 0, 3, 7, { texRepeatZ, 1.0f }); // Esquerda (Z, Y)
+            addTriangles(0, 1, 2, 3, { 1.0f, 1.0f });
+            addTriangles(1, 5, 6, 2, { texRepeatZ, 1.0f });
+            addTriangles(5, 4, 7, 6, { 1.0f, 1.0f });
+            addTriangles(4, 0, 3, 7, { texRepeatZ, 1.0f });
             addTriangles(3, 2, 6, 7, { 1.0f, texRepeatZ });
-            addTriangles(4, 5, 1, 0, { 1.0f, texRepeatZ }); // Baixo (X, Z)
+            addTriangles(4, 5, 1, 0, { 1.0f, texRepeatZ });
             };
 
-        float ground = -1.5f;
-        float sofaZStart = 0.0f;
+        float ground = 0.0f;
+        float sofaZStart = 7.0f;
         float sofaLength = 2.0f;
         float sofaWidth = 0.8f;
 
         float repeatZ = sofaLength;
 
-        // 1. Assento (Base)
-        addBox(glm::vec3(-1.5f, ground, sofaZStart), glm::vec3(-1.5f + sofaWidth, ground + 0.4f, sofaZStart + sofaLength), 1.0f, repeatZ);
+        addBox(glm::vec3(1.5f, ground, sofaZStart), glm::vec3(1.5f + sofaWidth, ground + 0.4f, sofaZStart + sofaLength), 1.0f, repeatZ);
 
-        // 2. Encosto
-        addBox(glm::vec3(-1.5f, ground + 0.4f, sofaZStart), glm::vec3(-1.35f, ground + 0.9f, sofaZStart + sofaLength), 1.0f, repeatZ);
+        addBox(glm::vec3(1.5f, ground + 0.4f, sofaZStart), glm::vec3(1.65f, ground + 0.9f, sofaZStart + sofaLength), 1.0f, repeatZ);
 
-        // 3. Braços
-        addBox(glm::vec3(-1.5f, ground + 0.4f, sofaZStart), glm::vec3(-1.5f + sofaWidth, ground + 0.6f, sofaZStart + 0.15f), 1.0f, 1.0f);
-        addBox(glm::vec3(-1.5f, ground + 0.4f, sofaZStart + sofaLength - 0.15f), glm::vec3(-1.5f + sofaWidth, ground + 0.6f, sofaZStart + sofaLength), 1.0f, 1.0f);
+        addBox(glm::vec3(1.5f, ground + 0.4f, sofaZStart), glm::vec3(1.5f + sofaWidth, ground + 0.6f, sofaZStart + 0.15f), 1.0f, 1.0f);
+        addBox(glm::vec3(1.5f, ground + 0.4f, sofaZStart + sofaLength - 0.15f), glm::vec3(1.5f + sofaWidth, ground + 0.6f, sofaZStart + sofaLength), 1.0f, 1.0f);
 
         auto sofaMesh = std::make_unique<Mesh>(sofaTris);
         sofaMesh->loadTexture(RESOURCES_PATH "textures/sofa.jpg");
         objects.push_back(std::move(sofaMesh));
     }
 
+    // MESINHA DE CENTRO
+    {
+        float tableGlassRadius = 0.35f;
+        float tableGlassHeight = 0.05f;
+        float tableHeight = 0.4f;
+        float legRadius = 0.025f;
+
+        // Posição central em frente ao sofá
+        float tableX = 3.0f;
+        float tableZ = 8.0f;
+
+        // Tampo de vidro (Mesh circular)
+        std::vector<Triangle> glassTris;
+        glm::vec3 glassColor(2.5f);
+
+        int segments = 32; // Número de segmentos do círculo
+        float centerY = tableHeight;
+
+        // Centro do disco
+        glm::vec3 center(tableX, centerY, tableZ);
+
+        // Criar o disco usando triângulos em forma de leque
+        for (int i = 0; i < segments; ++i) {
+            float angle1 = (float)i / segments * 2.0f * glm::pi<float>();
+            float angle2 = (float)(i + 1) / segments * 2.0f * glm::pi<float>();
+
+            // Vértices na borda do círculo
+            glm::vec3 v1 = center + glm::vec3(
+                tableGlassRadius * cos(angle1),
+                0.0f,
+                tableGlassRadius * sin(angle1)
+            );
+
+            glm::vec3 v2 = center + glm::vec3(
+                tableGlassRadius * cos(angle2),
+                0.0f,
+                tableGlassRadius * sin(angle2)
+            );
+
+            // UVs para mapear a textura circular
+            glm::vec2 uvCenter(0.5f, 0.5f);
+            glm::vec2 uv1(0.5f + 0.5f * cos(angle1), 0.5f + 0.5f * sin(angle1));
+            glm::vec2 uv2(0.5f + 0.5f * cos(angle2), 0.5f + 0.5f * sin(angle2));
+
+            // Face superior
+            glassTris.push_back(Triangle(
+                Point(center.x, center.y, center.z),
+                Point(v1.x, v1.y, v1.z),
+                Point(v2.x, v2.y, v2.z),
+                uvCenter, uv1, uv2,
+                glassColor, glassColor, glassColor, 100.0f
+            ));
+
+            // Face inferior (opcional, para dar espessura)
+            glassTris.push_back(Triangle(
+                Point(center.x, centerY - tableGlassHeight, center.z),
+                Point(v2.x, v2.y - tableGlassHeight, v2.z),
+                Point(v1.x, v1.y - tableGlassHeight, v1.z),
+                uvCenter, uv2, uv1,
+                glassColor, glassColor, glassColor, 100.0f
+            ));
+
+            // Lateral (borda do disco)
+            glm::vec3 v1_bottom = v1 - glm::vec3(0, tableGlassHeight, 0);
+            glm::vec3 v2_bottom = v2 - glm::vec3(0, tableGlassHeight, 0);
+
+            float u1 = (float)i / segments;
+            float u2 = (float)(i + 1) / segments;
+
+            glassTris.push_back(Triangle(
+                Point(v1.x, v1.y, v1.z),
+                Point(v2.x, v2.y, v2.z),
+                Point(v2_bottom.x, v2_bottom.y, v2_bottom.z),
+                glm::vec2(u1, 0), glm::vec2(u2, 0), glm::vec2(u2, 1),
+                glassColor, glassColor, glassColor, 100.0f
+            ));
+
+            glassTris.push_back(Triangle(
+                Point(v1.x, v1.y, v1.z),
+                Point(v2_bottom.x, v2_bottom.y, v2_bottom.z),
+                Point(v1_bottom.x, v1_bottom.y, v1_bottom.z),
+                glm::vec2(u1, 0), glm::vec2(u2, 1), glm::vec2(u1, 1),
+                glassColor, glassColor, glassColor, 100.0f
+            ));
+        }
+
+        auto glassMesh = std::make_unique<Mesh>(glassTris);
+        glassMesh->loadTexture(RESOURCES_PATH "textures/vidro.jpg");
+        objects.push_back(std::move(glassMesh));
+
+        // Pés da mesa (cilindros pretos)
+        glm::vec3 legColor(0.1f, 0.1f, 0.1f); // Preto
+        float legHeight = tableHeight - tableGlassHeight;
+        float legOffset = tableGlassRadius * 0.65f; // Distância do centro
+
+        // 4 pés nas extremidades
+        std::vector<glm::vec3> legPositions = {
+            {tableX + legOffset, 0.0f, tableZ + legOffset},  // Frente direita
+            {tableX - legOffset, 0.0f, tableZ + legOffset},  // Frente esquerda
+            {tableX + legOffset, 0.0f, tableZ - legOffset},  // Trás direita
+            {tableX - legOffset, 0.0f, tableZ - legOffset}   // Trás esquerda
+        };
+
+        for (const auto& pos : legPositions) {
+            objects.push_back(std::make_unique<Cilinder>(
+                Point(pos.x, pos.y, pos.z, 1.0f),
+                legRadius,
+                legHeight,
+                glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
+                true, true,
+                legColor,
+                legColor,
+                glm::vec3(0.3f), // Pouco brilho
+                10.0f,
+                legColor,
+                legColor,
+                glm::vec3(0.3f),
+                10.0f
+            ));
+        }
+    }
+
+    // TV - Transformado: X=3.0 para X=6.0, Y=0.1 para Y=1.6, Z=1.0 para Z=8.0
     Mesh* tvMeshPtr = nullptr;
     {
         std::vector<Triangle> tvTris;
         glm::vec3 frameColor(1.0f);
         glm::vec3 screenColor(1.0f);
 
-        float wallX = 3.0f;
-        float tvWidth = 2.2f;  
+        float wallX = 6.0f;
+        float tvWidth = 2.2f;
         float tvHeight = 1.25f;
-        float tvDepth = 0.04f; 
+        float tvDepth = 0.04f;
 
-        float centerZ = 1.0f;  
-        float centerY = 0.1f;
+        float centerZ = 8.0f;
+        float centerY = 1.6f;
 
-        // 1. MOLDURA
         auto addFrame = [&](glm::vec3 min, glm::vec3 max) {
             glm::vec3 v[8] = {
                 {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z},
@@ -687,7 +811,6 @@ int main(void)
         addFrame(glm::vec3(wallX - tvDepth, centerY - tvHeight / 2, centerZ - tvWidth / 2),
             glm::vec3(wallX, centerY + tvHeight / 2, centerZ + tvWidth / 2));
 
-        // 2. TELA
         float screenX = wallX - tvDepth - 0.001f;
         float border = 0.03f;
         Point s1(screenX, centerY - tvHeight / 2 + border, centerZ + tvWidth / 2 - border);
@@ -697,8 +820,7 @@ int main(void)
 
         glm::vec2 uv0(0, 0), uv1(1, 0), uv2(1, 1), uv3(0, 1);
 
-
-        glm::vec3 selfLuminous(1.0f, 1.0f, 1.0f);
+        glm::vec3 selfLuminous(2.5f, 2.5f, 2.5f);
         tvTris.push_back(Triangle(s1, s2, s3, uv0, uv1, uv2, selfLuminous, screenColor, screenColor, 10.0f));
         tvTris.push_back(Triangle(s1, s3, s4, uv0, uv2, uv3, selfLuminous, screenColor, screenColor, 10.0f));
 
@@ -708,21 +830,19 @@ int main(void)
         objects.push_back(std::move(tvMesh));
     }
 
-    // --- DEFINIÇÃO DA JANELA
+    // JANELA - Transformado: Z=7.0 para Z=14.0, Y=0.2 para Y=1.7
     {
         std::vector<Triangle> windowTris;
         glm::vec3 frameColor(1.0f);
         glm::vec3 glassColor(1.0f);
 
-        // Parâmetros de posição
-        float wallZ = 7.0f;
-        float winWidth = 2.0f;  
+        float wallZ = 14.0f;
+        float winWidth = 2.0f;
         float winHeight = 1.2f;
-        float winDepth = 0.05f; 
-        float centerX = 0.0f;   
-        float centerY = 0.2f;
+        float winDepth = 0.05f;
+        float centerX = 3.0f;
+        float centerY = 1.7f;
 
-        // 1. MOLDURA (Bloco recuado para dentro da sala a partir de Z=7.0)
         auto addFrame = [&](glm::vec3 min, glm::vec3 max) {
             glm::vec3 v[8] = {
                 {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z},
@@ -737,7 +857,6 @@ int main(void)
             addQ(4, 0, 3, 7); addQ(3, 2, 6, 7); addQ(4, 5, 1, 0);
             };
 
-        // Moldura encostada em Z=7.0 vindo para Z=6.95
         addFrame(glm::vec3(centerX - winWidth / 2, centerY - winHeight / 2, wallZ - winDepth),
             glm::vec3(centerX + winWidth / 2, centerY + winHeight / 2, wallZ));
 
@@ -749,7 +868,7 @@ int main(void)
 
         glm::vec2 uv0(0, 0), uv1(1, 0), uv2(1, 1), uv3(0, 1);
 
-        glm::vec3 dayLight(1.0f);
+        glm::vec3 dayLight(2.5f, 2.5f, 2.5f);
         windowTris.push_back(Triangle(p1, p2, p3, uv0, uv1, uv2, dayLight, glassColor, glassColor, 10.0f));
         windowTris.push_back(Triangle(p1, p3, p4, uv0, uv2, uv3, dayLight, glassColor, glassColor, 10.0f));
 
@@ -758,21 +877,114 @@ int main(void)
         objects.push_back(std::move(windowMesh));
     }
 
-    // --- DEFINIÇÃO DO TETO COM TEXTURA ---
+    // --- ESTANTE DE LIVROS ---
+    {
+        std::vector<Triangle> shelfTris;
+        glm::vec3 woodColor(1.0f);
+
+        // Dimensões da Estante
+        float shelfHeight = 2.4f;
+        float shelfWidth = 1.2f;
+        float shelfDepth = 0.35f;
+        float thickness = 0.04f;
+
+        float startX = 0.0f;
+        float startZ = 14.0f;
+
+        auto addBoard = [&](glm::vec3 min, glm::vec3 max) {
+            glm::vec3 v[8] = {
+                {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z},
+                {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z}
+            };
+            glm::vec2 uv0(0, 0), uv1(1, 0), uv2(1, 1), uv3(0, 1);
+
+            auto addQ = [&](int a, int b, int c, int d) {
+                shelfTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), uv0, uv1, uv2, woodColor, woodColor, woodColor, 32.0f));
+                shelfTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), uv0, uv2, uv3, woodColor, woodColor, woodColor, 32.0f));
+                };
+            addQ(0, 1, 2, 3); addQ(1, 5, 6, 2); addQ(5, 4, 7, 6);
+            addQ(4, 0, 3, 7); addQ(3, 2, 6, 7); addQ(4, 5, 1, 0);
+            };
+
+        // 1. ESTRUTURA (Construindo da esquerda X=0 para a direita X+)
+
+        // Lateral Esquerda (Encostada na parede X=0)
+        addBoard(glm::vec3(startX, 0.0f, startZ - shelfDepth),
+            glm::vec3(startX + thickness, shelfHeight, startZ));
+
+        // Lateral Direita
+        addBoard(glm::vec3(startX + shelfWidth - thickness, 0.0f, startZ - shelfDepth),
+            glm::vec3(startX + shelfWidth, shelfHeight, startZ));
+
+        // Topo
+        addBoard(glm::vec3(startX, shelfHeight - thickness, startZ - shelfDepth),
+            glm::vec3(startX + shelfWidth, shelfHeight, startZ));
+
+        // Fundo (Encostado na parede Z=14)
+        addBoard(glm::vec3(startX, 0.0f, startZ - thickness),
+            glm::vec3(startX + shelfWidth, shelfHeight, startZ));
+
+        // Prateleiras internas
+        int numShelves = 5;
+        float spacing = (shelfHeight - thickness) / numShelves;
+        for (int i = 0; i < numShelves; i++) {
+            float y = i * spacing + 0.1f;
+            addBoard(glm::vec3(startX + thickness, y, startZ - shelfDepth),
+                glm::vec3(startX + shelfWidth - thickness, y + thickness, startZ - thickness));
+        }
+
+        auto m = std::make_unique<Mesh>(shelfTris);
+        m->loadTexture(RESOURCES_PATH "textures/mesa.jpg");
+        objects.push_back(std::move(m));
+
+        // 2. LIVROS
+        std::vector<Triangle> bookTris;
+        glm::vec3 red(0.8f, 0.2f, 0.2f), blue(0.2f, 0.3f, 0.8f), green(0.2f, 0.6f, 0.2f);
+
+        auto addBook = [&](glm::vec3 pos, float h, float w, float d, glm::vec3 color) {
+            glm::vec3 min = pos;
+            glm::vec3 max = pos + glm::vec3(w, h, d);
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+            glm::vec2 zuv(0, 0);
+            auto addQ = [&](int a, int b, int c, int d) {
+                bookTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), zuv, zuv, zuv, color, color, color, 10.0f));
+                bookTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), zuv, zuv, zuv, color, color, color, 10.0f));
+                };
+            addQ(0, 1, 2, 3); addQ(1, 5, 6, 2); addQ(5, 4, 7, 6); addQ(4, 0, 3, 7); addQ(3, 2, 6, 7); addQ(4, 5, 1, 0);
+            };
+
+        // Livros na Prateleira 2
+        float shelfY = 1.0f + thickness; 
+        float bZ = startZ - 0.25f;      
+
+        addBook(glm::vec3(0.2f, shelfY, bZ), 0.25f, 0.05f, 0.2f, red);
+        addBook(glm::vec3(0.26f, shelfY, bZ), 0.22f, 0.04f, 0.19f, blue);
+        addBook(glm::vec3(0.31f, shelfY, bZ), 0.26f, 0.06f, 0.21f, green);
+
+        // Livro deitado
+        addBook(glm::vec3(0.5f, shelfY, bZ), 0.05f, 0.25f, 0.2f, red);
+
+        // Livros na Prateleira 3
+        shelfY = 1.5f + thickness;
+        addBook(glm::vec3(0.7f, shelfY, bZ), 0.24f, 0.05f, 0.2f, blue);
+        addBook(glm::vec3(0.76f, shelfY, bZ), 0.24f, 0.05f, 0.2f, blue);
+
+        auto books = std::make_unique<Mesh>(bookTris);
+        objects.push_back(std::move(books));
+    }
+
+    // TETO COM TEXTURA - Transformado: Y=1.4 para Y=2.9
     {
         std::vector<Triangle> roofTris;
         float limitX = 3.0f;
         float limitZ = 7.0f;
-        float h = 1.4f;
+        float h = 2.9f;
 
-        // Vértices do teto (H é a altura)
-        Point p1(-limitX, h, limitZ);
-        Point p2(limitX, h, limitZ);
-        Point p3(limitX, h, -limitZ);
-        Point p4(-limitX, h, -limitZ);
+        Point p1(0.0f, h, 14.0f);
+        Point p2(6.0f, h, 14.0f);
+        Point p3(6.0f, h, 0.0f);
+        Point p4(0.0f, h, 0.0f);
 
-        // Coordenadas UV com repetição (Tiling)
-        // Como o teto é comprido (7 unidades), repetimos a textura 2x na largura e 4x no comprimento
         float rfX = 2.0f;
         float rfZ = 4.0f;
         glm::vec2 uv1(0.0f, 0.0f);
@@ -782,7 +994,6 @@ int main(void)
 
         glm::vec3 white(1.0f);
 
-        // Triângulos configurados para olhar para BAIXO (ordem p1, p3, p2)
         roofTris.push_back(Triangle(p1, p3, p2, uv1, uv3, uv2, white, white, white, 32.0f));
         roofTris.push_back(Triangle(p1, p4, p3, uv1, uv4, uv3, white, white, white, 32.0f));
 
@@ -791,21 +1002,19 @@ int main(void)
         objects.push_back(std::move(roofMesh));
     }
 
-    // --- DEFINIÇÃO DA MESA ---
+    // MESA - Transformado: X direita 3.0 para 6.0, Y=-0.7 para 0.8, Z fundo -7.0 para 0.0
     {
         std::vector<Triangle> tableTris;
         glm::vec3 tableColor(1.0f);
 
-        // Dimensões aumentadas
-        float tableHeight = -0.7f;
+        float tableHeight = 0.8f;
         float tableThickness = 0.05f;
-        float tableWidthZ = 2.2f;  
+        float tableWidthZ = 2.2f;
         float tableDepthX = 1.2f;
 
-        float wallRightX = 3.0f;
-        float wallBackZ = -7.0f;
+        float wallRightX = 6.0f;
+        float wallBackZ = 0.0f;
 
-        // 1. TAMPO DA MESA
         auto addTableBox = [&](glm::vec3 min, glm::vec3 max) {
             glm::vec3 v[8] = {
                 {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z},
@@ -828,17 +1037,16 @@ int main(void)
         tableMesh->loadTexture(RESOURCES_PATH "textures/mesa.jpg");
         objects.push_back(std::move(tableMesh));
 
-        // 2. PÉS DA MESA 
         glm::vec3 legColor(0.15f);
         float legRadius = 0.04f;
-        float legHeight = tableHeight - (-1.5f);
+        float legHeight = tableHeight - 0.0f;
 
         float offset = 0.1f;
         std::vector<glm::vec3> legPos = {
-            {wallRightX - offset, -1.5f, wallBackZ + offset},               
-            {wallRightX - tableDepthX + offset, -1.5f, wallBackZ + offset},    
-            {wallRightX - offset, -1.5f, wallBackZ + tableWidthZ - offset},   
-            {wallRightX - tableDepthX + offset, -1.5f, wallBackZ + tableWidthZ - offset} 
+            {wallRightX - offset, 0.0f, wallBackZ + offset},
+            {wallRightX - tableDepthX + offset, 0.0f, wallBackZ + offset},
+            {wallRightX - offset, 0.0f, wallBackZ + tableWidthZ - offset},
+            {wallRightX - tableDepthX + offset, 0.0f, wallBackZ + tableWidthZ - offset}
         };
 
         for (const auto& lp : legPos) {
@@ -849,53 +1057,54 @@ int main(void)
         }
     }
 
-    // --- CONFIGURAÇÃO DE ILUMINAÇÃO ---
+    // ILUMINAÇÃO
     std::vector<Light*> lights;
 
-    // 1. Luz do Canto (Árvore e Presente)
+    // Luz da Árvore - Transformado: (-2.0, 1.1, -4.0)  (1.0, 2.6, 3.0)
     SpotLight* spotTree = new SpotLight(
-        glm::vec3(0.8f, 0.9f, 0.8f),     
-        Point(-2.0f, 1.1f, -4.0f, 1.0f),   
-        glm::vec3(0.0f, -1.0f, 0.0f),      
-        50.0f                             
+        glm::vec3(0.8f, 0.9f, 0.8f),
+        Point(1.0f, 2.6f, 3.0f, 1.0f),
+        glm::vec3(0.0f, -1.0f, 0.0f),
+        50.0f
     );
 
-    // 3. Luz do Sofá
+    // Luz do Sofá - Transformado: (-1.0, 1.1, 1.0)  (2.0, 2.6, 8.0)
     SpotLight* spotSofa = new SpotLight(
-        glm::vec3(1.0f, 0.9f, 0.7f),      
-        Point(-1.0f, 1.1f, 1.0f, 1.0f),    
+        glm::vec3(1.0f, 0.9f, 0.7f),
+        Point(2.0f, 2.6f, 8.0f, 1.0f),
         glm::vec3(0.0f, -1.0f, 0.0f),
         70.0f
     );
 
-    // --- LUZ EMITIDA PELA TELA DA TV ---
+    // Luz da TV - Transformado: (2.8, 0.1, 1.0)  (5.8, 1.6, 8.0)
     SpotLight* spotTVLight = new SpotLight(
         glm::vec3(0.8f, 0.8f, 1.0f),
-        Point(2.8f, 0.1f, 1.0f, 1.0f), 
-        glm::vec3(-1.0f, 0.0f, 0.0f),  
-        60.0f                          
+        Point(5.8f, 1.6f, 8.0f, 1.0f),
+        glm::vec3(-1.0f, 0.0f, 0.0f),
+        60.0f
     );
 
     lights.push_back(spotTree);
     lights.push_back(spotSofa);
     lights.push_back(spotTVLight);
 
+    // Luz da Janela - Transformado: (0.0, 0.2, 6.0)  (3.0, 1.7, 13.0)
     PointLight* windowLight = new PointLight(
         glm::vec3(0.4f, 0.4f, 0.4f),
-        Point(0.0f, 0.2f, 6.0f, 1.0f)
+        Point(3.0f, 1.7f, 13.0f, 1.0f)
     );
 
     lights.push_back(windowLight);
 
     std::vector<Sphere*> ledSpheres;
 
-    // --- LUMINÁRIAS DE LED NO TETO ---
+    // LEDs no Teto - Transformados
     float ledRadius = 0.08f;
-    glm::vec3 ledOnColor(1.0f); 
+    glm::vec3 ledOnColor(1.0f);
 
     std::vector<Point> spotPositions = {
-        Point(-2.0f, 1.3f, -4.0f, 1.0f), 
-        Point(-1.0f, 1.3f,  1.0f, 1.0f),
+        Point(1.0f, 2.8f, 3.0f, 1.0f),
+        Point(2.0f, 2.8f, 8.0f, 1.0f),
     };
 
     for (const auto& pos : spotPositions) {
