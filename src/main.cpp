@@ -223,6 +223,26 @@ Object* pickObject(Camera& camera, const std::vector<ObjectCache>& sceneCache) {
     return hitObject;
 }
 
+bool isAheadOfCamera(const AABB& box, const Camera& camera) {
+    glm::vec3 camPos = glm::vec3(camera.position.position);
+    glm::vec3 camDir = camera.forward;
+
+    glm::vec3 corners[8] = {
+        {box.min.x, box.min.y, box.min.z}, {box.max.x, box.min.y, box.min.z},
+        {box.min.x, box.max.y, box.min.z}, {box.max.x, box.max.y, box.min.z},
+        {box.min.x, box.min.y, box.max.z}, {box.max.x, box.min.y, box.max.z},
+        {box.min.x, box.max.y, box.max.z}, {box.max.x, box.max.y, box.max.z}
+    };
+
+    for (int i = 0; i < 8; i++) {
+        glm::vec3 dirToPoint = corners[i] - camPos;
+        if (glm::dot(dirToPoint, camDir) > -1.0f) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int main(void)
 {
 
@@ -1684,6 +1704,29 @@ int main(void)
             int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
 
             std::fill(framebuffer.begin(), framebuffer.end(), I_A);
+
+            std::vector<ObjectCache> sceneCache;
+            sceneCache.reserve(objects.size());
+
+            for (auto& obj : objects) {
+                ObjectCache cache;
+                cache.ptr = obj.get();
+                Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
+
+                if (meshPtr) {
+                    cache.box = meshPtr->getWorldAABB();
+                }
+                else {
+                    cache.box = obj->getAABB();
+                }
+
+                cache.isPlane = (dynamic_cast<Plane*>(cache.ptr) != nullptr);
+                cache.isMesh = (meshPtr != nullptr);
+
+                if (cache.isPlane || isAheadOfCamera(cache.box, camera)) {
+                    sceneCache.push_back(cache);
+                }
+            }
 
             int tileSize = 32;
             std::vector<Tile> tiles;
