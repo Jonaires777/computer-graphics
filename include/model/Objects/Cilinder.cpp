@@ -182,12 +182,27 @@ glm::vec3 Cilinder::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir, int 
 
 AABB Cilinder::getAABB() const {
     glm::vec3 posBase = glm::vec3(baseCenter.position);
-    glm::vec3 posTop = posBase + glm::vec3(direction) * height;
+    glm::vec3 dirNorm = glm::normalize(glm::vec3(direction));
+    glm::vec3 posTop = posBase + dirNorm * height;
 
-    // Expandimos a caixa para conter as duas extremidades considerando o raio
+    // Cálculo da extensão do raio projetado em cada eixo
+    // Fórmula: raio * sqrt(1.0 - componente_direção^2)
+    glm::vec3 extent;
+    extent.x = radius * sqrt(1.0f - dirNorm.x * dirNorm.x);
+    extent.y = radius * sqrt(1.0f - dirNorm.y * dirNorm.y);
+    extent.z = radius * sqrt(1.0f - dirNorm.z * dirNorm.z);
+
     AABB box;
-    box.min = glm::min(posBase, posTop) - glm::vec3(radius);
-    box.max = glm::max(posBase, posTop) + glm::vec3(radius);
+
+    // A caixa deve conter o círculo da base E o círculo do topo
+    // Como a extensão é simétrica, pegamos o mínimo dos centros e subtraímos a extensão
+    box.min = glm::min(posBase, posTop) - extent;
+    box.max = glm::max(posBase, posTop) + extent;
+
+    // Margem de segurança (epsilon) para evitar falhas visuais nas bordas
+    box.min -= 0.001f;
+    box.max += 0.001f;
+
     return box;
 }
 

@@ -41,4 +41,6 @@ public:
     void updateAABB();
 
     virtual AABB getAABB() const override;
+
+    AABB Mesh::getWorldAABB() const;
 };

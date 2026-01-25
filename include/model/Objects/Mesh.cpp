@@ -1,5 +1,5 @@
 #include "model/Objects/Mesh.h"
-
+#include "operations/Operations.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
 
@@ -31,23 +31,23 @@ bool Mesh::intersect(const Ray& ray, float& t_out) const {
     return false;
 }
 
-// Implementação da classe base (PROBLEMA: Aqui não sabemos qual triângulo foi atingido)
-// Para funcionar via Object*, você teria que salvar o hit no Mesh (o que quebra as threads).
-// Por isso, usaremos o getNormalFromHit no renderRows.
+// Implementação da classe base (apenas para compatibilidade de interface)
 glm::vec3 Mesh::getNormal(const glm::vec3& Pi, const glm::vec3& rayDir) const {
     return glm::vec3(0.0f);
 }
 
 bool Mesh::intersectWithHitRecord(const Ray& ray, HitRecord& hit) const {
+    Ray localRay = Operations::transformRay(ray, this->invModel);
+    
     float tNear, tFar;
-    if (!boundingBox.intersect(ray, tNear, tFar)) {
+    if (!boundingBox.intersect(localRay, tNear, tFar)) {
         return false;
     }
 
     bool hasHit = false;
     for (const auto& tri : triangles) {
         float t_tri, u_tri, v_tri;
-        if (tri.intersectBaricentric(ray, t_tri, u_tri, v_tri)) {
+        if (tri.intersectBaricentric(localRay, t_tri, u_tri, v_tri)) {
             if (t_tri < hit.t && t_tri > 0.001f) {
                 hit.t = t_tri;
                 hit.hitTriangle = &tri;
@@ -168,4 +168,28 @@ void Mesh::loadFromObj(const std::string& path) {
         }
     }
     this->updateAABB();
+}
+
+AABB Mesh::getWorldAABB() const {
+    if (this->model == glm::mat4(1.0f)) return boundingBox;
+
+    glm::vec3 corners[8] = {
+        {boundingBox.min.x, boundingBox.min.y, boundingBox.min.z},
+        {boundingBox.max.x, boundingBox.min.y, boundingBox.min.z},
+        {boundingBox.min.x, boundingBox.max.y, boundingBox.min.z},
+        {boundingBox.max.x, boundingBox.max.y, boundingBox.min.z},
+        {boundingBox.min.x, boundingBox.min.y, boundingBox.max.z},
+        {boundingBox.max.x, boundingBox.min.y, boundingBox.max.z},
+        {boundingBox.min.x, boundingBox.max.y, boundingBox.max.z},
+        {boundingBox.max.x, boundingBox.max.y, boundingBox.max.z}
+    };
+
+    AABB worldBox;
+    for (int i = 0; i < 8; i++) {
+        glm::vec3 worldCorner = glm::vec3(this->model * glm::vec4(corners[i], 1.0f));
+
+        worldBox.min = glm::min(worldBox.min, worldCorner);
+        worldBox.max = glm::max(worldBox.max, worldCorner);
+    }
+    return worldBox;
 }

@@ -21,7 +21,12 @@ struct PointLight : public Light {
         dist = glm::length(L);
         dir = glm::normalize(L);
 
-        attenuation = 1.0f; 
+        float constant = 1.0f;
+        float linear = 0.7f;   
+        float quadratic = 1.8f; 
+
+        attenuation = 1.0f / (constant + linear * dist + quadratic * (dist * dist));
+
         return true;        
     }
 };

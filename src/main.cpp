@@ -3,7 +3,6 @@
 #include <GLFW/glfw3.h>
 #include <openglDebug.h>
 #include <demoShaderLoader.h>
-#include <Eigen/Dense>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
@@ -282,7 +281,7 @@ int main(void)
     GLint texLocation = glGetUniformLocation(s.id, "u_Texture");
     glUniform1i(texLocation, 0);
 
-    // CÂMERA - Transformada: (0,0,0) para (3,1.5,7)
+    // CÂMERA 
     Camera camera(
         Point(3.0f, 1.5f, 7.0f, 1.0f),
         glm::vec3(0.0f, 0.0f, -1.0f),
@@ -294,10 +293,10 @@ int main(void)
 
     glfwSetWindowUserPointer(window, &camera);
 
-    // SCENE DEFINITION - TODAS AS COORDENADAS TRANSFORMADAS
+    // SCENE DEFINITION 
     std::vector<std::unique_ptr<Object>> objects;
 
-    // CHÃO - Transformado: Y=-1.5 para Y=0
+    // CHÃO 
     {
         std::vector<Triangle> floorTris;
         float size = 7.0f;
@@ -341,7 +340,7 @@ int main(void)
     float wallSize = 10.0f;
     float wallHeight = 1.5f;
 
-    // PAREDE DIREITA - Transformada: X=3.0 para X=6.0
+    // PAREDE DIREITA 
     {
         std::vector<Triangle> wallTris;
         float wallX = 6.0f;
@@ -361,7 +360,7 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // PAREDE ESQUERDA - Transformada: X=-3.0 para X=0.0
+    // PAREDE ESQUERDA 
     {
         std::vector<Triangle> wallTris;
         float wallX = 0.0f;
@@ -381,7 +380,7 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // PAREDE DE FUNDO - Transformada: Z=-7.0 para Z=0.0
+    // PAREDE DE FUNDO 
     {
         std::vector<Triangle> wallTris;
         float posZ = 0.0f;
@@ -401,7 +400,7 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // PAREDE DE TRÁS - Transformada: Z=7.0 para Z=14.0
+    // PAREDE DE TRÁS 
     {
         std::vector<Triangle> wallTris;
         float posZ = 14.0f;
@@ -421,7 +420,7 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // TETO SEM TEXTURA - Transformado: Y=1.5 para Y=3.0
+    // TETO SEM TEXTURA 
     {
         std::vector<Triangle> roofTris;
         float limitX = 3.0f;
@@ -440,7 +439,7 @@ int main(void)
         objects.push_back(std::make_unique<Mesh>(roofTris));
     }
 
-    // ÁRVORE (TRONCO) - Transformado: (-2.0, -1.5, -4.0) para (1.0, 0.0, 3.0)
+    // ÁRVORE (TRONCO)
     objects.push_back(std::make_unique<Cilinder>(
         Point(1.0f, 0.0f, 3.0f, 1.0f),
         0.05f,
@@ -509,13 +508,26 @@ int main(void)
         addQuad(0, 1, 2, 3); addQuad(1, 5, 6, 2); addQuad(5, 4, 7, 6);
         addQuad(4, 0, 3, 7); addQuad(3, 2, 6, 7); addQuad(4, 5, 1, 0);
 
-        objects.push_back(std::make_unique<Mesh>(cubeTris));
+        auto giftMesh = std::make_unique<Mesh>(cubeTris);
+        giftMesh->loadTexture(RESOURCES_PATH "textures/presente.jpg");
+
+        float angle = glm::radians(30.0f); // Gira 30 graus
+
+        glm::mat4 R = Operations::rotateY(angle);
+        glm::mat4 T = Operations::translate(center);    // Volta para a posição original
+        glm::mat4 invT = Operations::translate(-center); // Leva para a origem (0,0,0) para girar
+
+        // Ordem: T * R * invT
+        giftMesh->model = T * R * invT;
+        giftMesh->invModel = glm::inverse(giftMesh->model);
+
+        // Matriz de normais para a luz bater corretamente nas faces giradas
+        giftMesh->normalMatrix = glm::transpose(glm::inverse(glm::mat3(giftMesh->model)));
+
+        objects.push_back(std::move(giftMesh));
     }
 
-    Mesh* giftMesh = static_cast<Mesh*>(objects.back().get());
-    giftMesh->loadTexture(RESOURCES_PATH "textures/presente.jpg");
-
-    // INTERRUPTOR - Transformado: (-2.98, 0.0, 2.0) para (0.02, 1.5, 9.0)
+    // INTERRUPTOR 
     Object* interruptorPtr = nullptr;
     {
         float sWidth = 0.15f;
@@ -549,7 +561,61 @@ int main(void)
         objects.push_back(std::move(swMesh));
     }
 
-    // CONTROLE REMOTO - Transformado: (-0.9, -0.9, 1.9) para (2.1, 0.6, 8.9)
+    // --- PORTA (Ao lado do interruptor) ---
+    {
+        std::vector<Triangle> doorTris;
+        glm::vec3 doorColor(1.0f); // Branco para não alterar a cor da textura
+
+        float doorW = 0.05f; // Espessura
+        float doorH = 2.10f; // Altura padrão de porta
+        float doorL = 0.90f; // Largura padrão (no eixo Z)
+
+        glm::vec3 center(0.01f, doorH / 2.0f, 11.5f);
+
+        glm::vec3 min = center - glm::vec3(doorW / 2, doorH / 2, doorL / 2);
+        glm::vec3 max = center + glm::vec3(doorW / 2, doorH / 2, doorL / 2);
+
+        // Vértices da caixa
+        glm::vec3 v[8] = {
+            {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z},
+            {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z}
+        };
+
+		float cropX = 0.3f;
+        float cropY = 0.2f;
+        glm::vec2 uvBL(cropX, cropY); 
+        glm::vec2 uvBR(1 - cropX, cropY);
+        glm::vec2 uvTR(1 - cropX, 1 - cropY);
+        glm::vec2 uvTL(cropX, 1 - cropY);
+        glm::vec2 noUV(cropX, cropY);
+
+        auto addFace = [&](int a, int b, int c, int d, bool isFront) {
+            glm::vec2 u0, u1, u2, u3;
+
+            if (isFront) {
+                u0 = uvBR; u1 = uvBL; u2 = uvTL; u3 = uvTR;
+            }
+            else {
+                u0 = u1 = u2 = u3 = noUV;
+            }
+
+            doorTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), u0, u1, u2, doorColor, doorColor, doorColor, 32.0f));
+            doorTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), u0, u2, u3, doorColor, doorColor, doorColor, 32.0f));
+            };
+
+        addFace(0, 1, 2, 3, false);
+        addFace(1, 5, 6, 2, true);  // FACE DA FRENTE
+        addFace(5, 4, 7, 6, false);
+        addFace(4, 0, 3, 7, false);
+        addFace(3, 2, 6, 7, false);
+        addFace(4, 5, 1, 0, false);
+
+        auto doorMesh = std::make_unique<Mesh>(doorTris);
+        doorMesh->loadTexture(RESOURCES_PATH "textures/porta.jpg");
+        objects.push_back(std::move(doorMesh));
+    }
+
+    // CONTROLE REMOTO 
     Object* remoteControlPtr = nullptr;
     bool tvOn = true;
 
@@ -779,7 +845,7 @@ int main(void)
         }
     }
 
-    // TV - Transformado: X=3.0 para X=6.0, Y=0.1 para Y=1.6, Z=1.0 para Z=8.0
+    // TV 
     Mesh* tvMeshPtr = nullptr;
     {
         std::vector<Triangle> tvTris;
@@ -830,7 +896,7 @@ int main(void)
         objects.push_back(std::move(tvMesh));
     }
 
-    // JANELA - Transformado: Z=7.0 para Z=14.0, Y=0.2 para Y=1.7
+    // JANELA
     {
         std::vector<Triangle> windowTris;
         glm::vec3 frameColor(1.0f);
@@ -973,7 +1039,7 @@ int main(void)
         objects.push_back(std::move(books));
     }
 
-    // TETO COM TEXTURA - Transformado: Y=1.4 para Y=2.9
+    // TETO COM TEXTURA 
     {
         std::vector<Triangle> roofTris;
         float limitX = 3.0f;
@@ -1002,7 +1068,7 @@ int main(void)
         objects.push_back(std::move(roofMesh));
     }
 
-    // MESA - Transformado: X direita 3.0 para 6.0, Y=-0.7 para 0.8, Z fundo -7.0 para 0.0
+    // MESA 
     {
         std::vector<Triangle> tableTris;
         glm::vec3 tableColor(1.0f);
@@ -1057,10 +1123,385 @@ int main(void)
         }
     }
 
+    // --- PC GAMER ---
+    {
+        std::vector<Triangle> pcTris;
+        glm::vec3 caseColor(0.1f, 0.1f, 0.1f); // Preto
+        glm::vec3 ledColor(0.0f, 0.8f, 1.0f);  // Azul Ciano Neon
+
+        glm::vec3 start(5.6f, 0.8f, 0.4f);
+
+        float w = 0.22f; // Largura
+        float h = 0.48f; // Altura
+        float d = 0.50f; // Profundidade
+
+        // Função auxiliar local para criar caixas do PC
+        auto addPcBox = [&](glm::vec3 min, glm::vec3 max, glm::vec3 col, bool emissive) {
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+            glm::vec2 uv(0.1f, 0.1f); // UV fixo (cor solida da textura)
+
+            // Se for emissivo (LED), o K_ambient é muito alto para brilhar no escuro
+            glm::vec3 ka = emissive ? col * 5.0f : col;
+
+            auto q = [&](int a, int b, int c, int d) {
+                pcTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), uv, uv, uv, ka, col, col, 32.0f));
+                pcTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), uv, uv, uv, ka, col, col, 32.0f));
+                };
+            q(0, 1, 2, 3); q(1, 5, 6, 2); q(5, 4, 7, 6); q(4, 0, 3, 7); q(3, 2, 6, 7); q(4, 5, 1, 0);
+            };
+
+        // 1. Corpo do Gabinete
+        addPcBox(start, start + glm::vec3(w, h, d), caseColor, false);
+
+        // 2. Painel Frontal (Um pouco mais à frente no Z)
+        glm::vec3 painelMin = start + glm::vec3(0.0f, 0.0f, d);
+        glm::vec3 painelMax = start + glm::vec3(w, h, d + 0.02f);
+        addPcBox(painelMin, painelMax, glm::vec3(0.15f), false); // Cinza bem escuro
+
+        // 3. Botão Power (LED) na frente
+        addPcBox(start + glm::vec3(0.08f, h - 0.06f, d + 0.02f),
+            start + glm::vec3(0.14f, h - 0.04f, d + 0.025f), ledColor, true);
+
+        // 4. Faixa de LED lateral (decorativa)
+        addPcBox(start + glm::vec3(-0.001f, 0.1f, 0.1f),
+            start + glm::vec3(0.0f, h - 0.1f, 0.12f), ledColor, true);
+
+        auto pcMesh = std::make_unique<Mesh>(pcTris);
+        // Usamos a textura do controle pois ela é escura e rugosa (parece plástico/metal)
+        pcMesh->loadTexture(RESOURCES_PATH "textures/controle.jpg");
+        objects.push_back(std::move(pcMesh));
+    }
+
+    // --- MONITOR DO PC (Em cima da mesa de canto) ---
+    Mesh* monitorMeshPtr = nullptr;
+    bool monitorOn = true;
+    {
+        std::vector<Triangle> baseTris;
+        std::vector<Triangle> screenTris;
+
+        glm::vec3 plasticColor(0.1f); // Cor do plástico (sem textura)
+        glm::vec3 screenColor(1.0f);  // Cor base da tela (branca para a textura)
+
+        glm::vec3 basePos(5.6f, 0.8f, 1.2f);
+
+        float monW = 0.02f;
+        float monH = 0.35f;
+        float monL = 0.60f;
+
+        // Função auxiliar genérica para adicionar caixas à lista desejada
+        auto addGenericBox = [&](glm::vec3 min, glm::vec3 max, glm::vec3 col, std::vector<Triangle>& targetTris) {
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+            glm::vec2 uv(0, 0); // UV zerado, pois estas partes não terão textura
+            auto q = [&](int a, int b, int c, int d) {
+                targetTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), uv, uv, uv, col, col, col, 32.f));
+                targetTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), uv, uv, uv, col, col, col, 32.f));
+                };
+            q(0, 1, 2, 3); q(1, 5, 6, 2); q(5, 4, 7, 6); q(4, 0, 3, 7); q(3, 2, 6, 7); q(4, 5, 1, 0);
+            };
+
+        // 1. Base e Haste (Vão para baseTris)
+        addGenericBox(basePos + glm::vec3(-0.1f, 0.0f, -0.1f), basePos + glm::vec3(0.1f, 0.02f, 0.1f), plasticColor, baseTris);
+        addGenericBox(basePos + glm::vec3(-0.02f, 0.02f, -0.02f), basePos + glm::vec3(0.02f, 0.15f, 0.02f), plasticColor, baseTris);
+
+        // 2. Carcaça da Tela (Vai para baseTris)
+        glm::vec3 screenCenter = basePos + glm::vec3(-0.05f, 0.30f, 0.0f);
+        addGenericBox(screenCenter + glm::vec3(0, -monH / 2, -monL / 2), screenCenter + glm::vec3(monW, monH / 2, monL / 2), plasticColor, baseTris);
+
+        // 3. Display (Apenas a face frontal vai para screenTris)
+        float border = 0.015f;
+        glm::vec3 min = screenCenter + glm::vec3(-0.001f, -monH / 2 + border, -monL / 2 + border);
+        glm::vec3 max = screenCenter + glm::vec3(0.0f, monH / 2 - border, monL / 2 - border);
+
+        // Vértices da tela (olhando para -X)
+        Point p1(min.x, min.y, max.z); // Inferior Direito
+        Point p2(min.x, max.y, max.z); // Superior Direito
+        Point p3(min.x, max.y, min.z); // Superior Esquerdo
+        Point p4(min.x, min.y, min.z); // Inferior Esquerdo
+
+        // UVs para mapear a textura corretamente
+        glm::vec2 uv0(1, 0), uv1(1, 1), uv2(0, 1), uv3(0, 0);
+
+        // K_ambient alto para a tela brilhar quando ligada
+        glm::vec3 ka_screen(1.5f);
+
+        screenTris.push_back(Triangle(p1, p2, p3, uv0, uv1, uv2, ka_screen, screenColor, screenColor, 32.f));
+        screenTris.push_back(Triangle(p1, p3, p4, uv0, uv2, uv3, ka_screen, screenColor, screenColor, 32.f));
+
+        auto monitorBase = std::make_unique<Mesh>(baseTris);
+        objects.push_back(std::move(monitorBase));
+
+        auto monitorScreen = std::make_unique<Mesh>(screenTris);
+        monitorScreen->loadTexture(RESOURCES_PATH "textures/monitor.jpg");
+
+        monitorMeshPtr = monitorScreen.get();
+        objects.push_back(std::move(monitorScreen));
+    }
+
+    // --- TECLADO (Em cima da mesa de canto) ---
+    {
+        std::vector<Triangle> keyboardTris;
+        glm::vec3 kbColor(1.0f); // Cor base branca para multiplicar pela textura
+
+        glm::vec3 kbStart(5.2f - 0.25f, 0.805f, 1.0f - 0.1f);
+
+        float kW = 0.50f; // Largura do teclado
+        float kH = 0.02f; // Altura/Espessura
+        float kD = 0.22f; // Profundidade
+
+        // Função auxiliar para criar a caixa do teclado com textura no topo
+        auto addKbBox = [&](glm::vec3 min, glm::vec3 max) {
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+
+            float crop = 0.2f;
+            glm::vec2 uv0(0, crop), uv1(1, crop), uv2(1, 1 - crop), uv3(0, 1 - crop);
+            glm::vec2 uvSide(0.1f, 0.1f); 
+
+            auto addQ = [&](int a, int b, int c, int d, bool isTop) {
+                glm::vec2 u0 = isTop ? uv0 : uvSide;
+                glm::vec2 u1 = isTop ? uv1 : uvSide;
+                glm::vec2 u2 = isTop ? uv2 : uvSide;
+                glm::vec2 u3 = isTop ? uv3 : uvSide;
+
+                keyboardTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), u0, u1, u2, kbColor, kbColor, kbColor, 10.0f));
+                keyboardTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), u0, u2, u3, kbColor, kbColor, kbColor, 10.0f));
+                };
+
+            addQ(0, 1, 2, 3, false); // Frente
+            addQ(1, 5, 6, 2, false); // Direita
+            addQ(5, 4, 7, 6, false); // Trás
+            addQ(4, 0, 3, 7, false); // Esquerda
+            addQ(3, 2, 6, 7, true);  // TOPO (Teclas)
+            addQ(4, 5, 1, 0, false); // Baixo
+            };
+
+        addKbBox(kbStart, kbStart + glm::vec3(kW, kH, kD));
+
+        auto kbMesh = std::make_unique<Mesh>(keyboardTris);
+        kbMesh->loadTexture(RESOURCES_PATH "textures/teclado.jpg");
+
+        glm::vec3 pivot = kbStart + glm::vec3(kW / 2, 0, kD / 2);
+        glm::mat4 R = Operations::rotateY(glm::radians(-90.0f)); 
+        glm::mat4 T = Operations::translate(pivot);
+        glm::mat4 invT = Operations::translate(-pivot);
+
+        kbMesh->model = T * R * invT;
+        kbMesh->invModel = glm::inverse(kbMesh->model);
+        kbMesh->normalMatrix = glm::transpose(glm::inverse(glm::mat3(kbMesh->model)));
+
+        objects.push_back(std::move(kbMesh));
+    }
+
+    // --- MOUSE ---
+    {
+        std::vector<Triangle> mouseTris;
+        glm::vec3 mouseColor(0.1f); // Preto fosco
+
+        glm::vec3 startPos(5.1f, 0.8f, 1.40f);
+
+        // Dimensões do mouse
+        float mW = 0.06f; // Largura
+        float mH = 0.03f; // Altura
+        float mL = 0.11f; // Comprimento
+
+        float cropX = 0.4f;
+        float cropY = 0.2f;
+        glm::vec2 uv0(cropX, cropY);
+        glm::vec2 uv1(1.0f - cropX, cropY);
+        glm::vec2 uv2(1.0f - cropX, 1.0f - cropY);
+        glm::vec2 uv3(cropX, 1.0f - cropY);
+        glm::vec2 uvSide(0.1f, 0.1f);
+
+        auto addBox = [&](glm::vec3 min, glm::vec3 max) {
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+            glm::vec2 uv(0, 0);
+
+            auto addQ = [&](int a, int b, int c, int d, bool isTop) {
+                glm::vec2 u0 = isTop ? uv0 : uvSide;
+                glm::vec2 u1 = isTop ? uv1 : uvSide;
+                glm::vec2 u2 = isTop ? uv2 : uvSide;
+                glm::vec2 u3 = isTop ? uv3 : uvSide;
+
+                mouseTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), u0, u1, u2, mouseColor, mouseColor, mouseColor, 32.0f));
+                mouseTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), u0, u2, u3, mouseColor, mouseColor, mouseColor, 32.0f));
+                };
+
+            addQ(0, 1, 2, 3, false); // Frente
+            addQ(1, 5, 6, 2, false); // Direita
+            addQ(5, 4, 7, 6, false); // Trás
+            addQ(4, 0, 3, 7, false); // Esquerda
+            addQ(3, 2, 6, 7, true);  // TOPO
+            addQ(4, 5, 1, 0, false); // Baixo
+
+			};
+
+        addBox(startPos, startPos + glm::vec3(mW, mH, mL));
+
+        auto mouseMesh = std::make_unique<Mesh>(mouseTris);
+        mouseMesh->loadTexture(RESOURCES_PATH "textures/mouse.jpg");
+
+        glm::vec3 pivot = startPos + glm::vec3(mW / 2, 0, mL / 2);
+        glm::mat4 R = Operations::rotateY(glm::radians(-90.0f));
+        glm::mat4 T = Operations::translate(pivot);
+        glm::mat4 invT = Operations::translate(-pivot);
+
+        mouseMesh->model = T * R * invT;
+        mouseMesh->invModel = glm::inverse(mouseMesh->model);
+        mouseMesh->normalMatrix = glm::transpose(glm::inverse(glm::mat3(mouseMesh->model)));
+
+        objects.push_back(std::move(mouseMesh));
+    }
+
+    // --- CADEIRA GAMER (Frente à mesa do PC) ---
+    {
+        std::vector<Triangle> chairTris;
+        glm::vec3 chairColor(1.0f);
+
+        glm::vec3 chairPos(4.3f, 0.0f, 1.1f);
+
+        // Dimensões
+        float seatH = 0.50f; // Altura do assento do chão
+        float seatW = 0.50f; // Largura do assento
+        float seatD = 0.50f; // Profundidade do assento
+        float backH = 0.80f; // Altura do encosto (a partir do assento)
+        float backTh = 0.10f; // Espessura do encosto
+
+        auto addBox = [&](glm::vec3 min, glm::vec3 max) {
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+
+            glm::vec2 uv0(0, 0), uv1(1, 0), uv2(1, 1), uv3(0, 1);
+
+            auto q = [&](int a, int b, int c, int d) {
+                chairTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), uv0, uv1, uv2, chairColor, chairColor, chairColor, 10.0f));
+                chairTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), uv0, uv2, uv3, chairColor, chairColor, chairColor, 10.0f));
+                };
+            q(0, 1, 2, 3); q(1, 5, 6, 2); q(5, 4, 7, 6); q(4, 0, 3, 7); q(3, 2, 6, 7); q(4, 5, 1, 0);
+            };
+
+        // 1. Pé Central (Cilindro simplificado como caixa)
+        addBox(chairPos + glm::vec3(-0.05f, 0.0f, -0.05f), chairPos + glm::vec3(0.05f, seatH - 0.05f, 0.05f));
+
+        // 2. Base com Rodinhas (Caixa achatada no chão)
+        addBox(chairPos + glm::vec3(-0.25f, 0.0f, -0.25f), chairPos + glm::vec3(0.25f, 0.05f, 0.25f));
+
+        // 3. Assento
+        glm::vec3 sMin = chairPos + glm::vec3(-seatW / 2, seatH - 0.05f, -seatD / 2);
+        glm::vec3 sMax = chairPos + glm::vec3(seatW / 2, seatH, seatD / 2);
+        addBox(sMin, sMax);
+
+        // 4. Encosto (Atrás do assento, ou seja, maior Z na posição original)
+        // Nota: O encosto fica na borda "traseira" (Z positivo local)
+        glm::vec3 bMin = chairPos + glm::vec3(-seatW / 2, seatH, seatD / 2 - backTh);
+        glm::vec3 bMax = chairPos + glm::vec3(seatW / 2, seatH + backH, seatD / 2);
+        addBox(bMin, bMax);
+
+        auto chairMesh = std::make_unique<Mesh>(chairTris);
+        chairMesh->loadTexture(RESOURCES_PATH "textures/cadeira2.jpg");
+
+        glm::vec3 pivot = chairPos; // Gira no próprio eixo central
+        glm::mat4 R = Operations::rotateY(glm::radians(-90.0f));
+        glm::mat4 T = Operations::translate(pivot);
+        glm::mat4 invT = Operations::translate(-pivot);
+
+        chairMesh->model = T * R * invT;
+        chairMesh->invModel = glm::inverse(chairMesh->model);
+        chairMesh->normalMatrix = glm::transpose(glm::inverse(glm::mat3(chairMesh->model)));
+
+        objects.push_back(std::move(chairMesh));
+    }
+
+    // --- PAREDE DIVISÓRIA (Com vão de porta) ---
+    {
+        std::vector<Triangle> divWallTris;
+        glm::vec3 wallColor(1.0f);
+
+        float divZ = 5.0f;        // Posição Z da divisória
+        float doorXStart = 2.0f;  // Começo do vão da porta
+        float doorXEnd = 3.0f;    // Fim do vão da porta
+        float doorHeight = 2.1f;  // Altura do vão
+        float wallThick = 0.15f;  // Espessura da parede
+
+        // Função auxiliar para criar blocos de parede
+        auto addWallBlock = [&](glm::vec3 min, glm::vec3 max) {
+            glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+            glm::vec2 uv(0, 0);
+            // UVs ajustados para a textura da parede não esticar demais
+            float repX = (max.x - min.x) / 2.0f;
+            float repY = (max.y - min.y) / 2.0f;
+            glm::vec2 u0(0, 0), u1(repX, 0), u2(repX, repY), u3(0, repY);
+
+            auto q = [&](int a, int b, int c, int d) {
+                divWallTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), u0, u1, u2, wallColor, wallColor, wallColor, 1.0f));
+                divWallTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), u0, u2, u3, wallColor, wallColor, wallColor, 1.0f));
+                };
+            q(0, 1, 2, 3); q(1, 5, 6, 2); q(5, 4, 7, 6); q(4, 0, 3, 7); q(3, 2, 6, 7); q(4, 5, 1, 0);
+            };
+
+        // 1. Parede Esquerda (Do canto X=0 até a porta)
+        addWallBlock(glm::vec3(0.0f, 0.0f, divZ), glm::vec3(doorXStart, 3.0f, divZ + wallThick));
+
+        // 2. Parede Direita (Da porta até o canto X=6)
+        addWallBlock(glm::vec3(doorXEnd, 0.0f, divZ), glm::vec3(6.0f, 3.0f, divZ + wallThick));
+
+        // 3. Viga Superior (Acima da porta)
+        addWallBlock(glm::vec3(doorXStart, doorHeight, divZ), glm::vec3(doorXEnd, 3.0f, divZ + wallThick));
+
+        auto divWallMesh = std::make_unique<Mesh>(divWallTris);
+        divWallMesh->loadTexture(RESOURCES_PATH "textures/parede.jpg");
+        objects.push_back(std::move(divWallMesh));
+    }
+
+    // --- PORTA ENTREABERTA (No vão da divisória) ---
+    {
+        std::vector<Triangle> doorTris;
+        glm::vec3 dColor(1.0f);
+
+        float dW = 0.95f; // Largura da folha da porta
+        float dH = 2.05f; // Altura
+        float dT = 0.04f; // Espessura
+
+        // Criamos a porta na origem para facilitar a rotação pelo pivô (dobradiça)
+        // A dobradiça fica em X=0 local
+        glm::vec3 min(0.0f, 0.0f, 0.0f);
+        glm::vec3 max(dW, dH, dT);
+
+        glm::vec3 v[8] = { {min.x, min.y, max.z}, {max.x, min.y, max.z}, {max.x, max.y, max.z}, {min.x, max.y, max.z}, {min.x, min.y, min.z}, {max.x, min.y, min.z}, {max.x, max.y, min.z}, {min.x, max.y, min.z} };
+
+        // UVs simples para a porta
+        float cropX = 0.3f;
+        float cropY = 0.2f;
+        glm::vec2 uv0(cropX, cropY), uv1(1 - cropX, cropY), uv2(1 - cropX, 1 - cropY), uv3(cropX, 1 - cropY);
+        auto q = [&](int a, int b, int c, int d) {
+            doorTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[b].x, v[b].y, v[b].z), Point(v[c].x, v[c].y, v[c].z), uv0, uv1, uv2, dColor, dColor, dColor, 10.0f));
+            doorTris.push_back(Triangle(Point(v[a].x, v[a].y, v[a].z), Point(v[c].x, v[c].y, v[c].z), Point(v[d].x, v[d].y, v[d].z), uv0, uv2, uv3, dColor, dColor, dColor, 10.0f));
+            };
+        q(0, 1, 2, 3); q(1, 5, 6, 2); q(5, 4, 7, 6); q(4, 0, 3, 7); q(3, 2, 6, 7); q(4, 5, 1, 0);
+
+        // Maçaneta
+        float kX = dW - 0.1f; float kY = 1.0f; float kZ = dT;
+        glm::vec3 km(kX, kY, kZ); glm::vec3 kM(kX + 0.05f, kY + 0.05f, kZ + 0.08f);
+        // ... (código simplificado de adicionar caixa da maçaneta aqui se quiser)
+
+        auto openDoorMesh = std::make_unique<Mesh>(doorTris);
+        openDoorMesh->loadTexture(RESOURCES_PATH "textures/porta.jpg");
+
+        glm::vec3 hingePos(2.05f, 0.0f, 5.0f + 0.05f); // Pequeno ajuste para centralizar no batente
+
+        // Rotação: Abre 90 graus para dentro da sala do PC (-Z)
+        glm::mat4 R = Operations::rotateY(glm::radians(-90.0f));
+        glm::mat4 T = Operations::translate(hingePos);
+
+        // Como criamos a porta com a dobradiça em (0,0,0), não precisamos de invT para o pivô
+        openDoorMesh->model = T * R;
+        openDoorMesh->invModel = glm::inverse(openDoorMesh->model);
+        openDoorMesh->normalMatrix = glm::transpose(glm::inverse(glm::mat3(openDoorMesh->model)));
+
+        objects.push_back(std::move(openDoorMesh));
+    }
+
     // ILUMINAÇÃO
     std::vector<Light*> lights;
 
-    // Luz da Árvore - Transformado: (-2.0, 1.1, -4.0)  (1.0, 2.6, 3.0)
+    // Luz da Árvore
     SpotLight* spotTree = new SpotLight(
         glm::vec3(0.8f, 0.9f, 0.8f),
         Point(1.0f, 2.6f, 3.0f, 1.0f),
@@ -1068,7 +1509,7 @@ int main(void)
         50.0f
     );
 
-    // Luz do Sofá - Transformado: (-1.0, 1.1, 1.0)  (2.0, 2.6, 8.0)
+    // Luz do Sofá 
     SpotLight* spotSofa = new SpotLight(
         glm::vec3(1.0f, 0.9f, 0.7f),
         Point(2.0f, 2.6f, 8.0f, 1.0f),
@@ -1076,7 +1517,7 @@ int main(void)
         70.0f
     );
 
-    // Luz da TV - Transformado: (2.8, 0.1, 1.0)  (5.8, 1.6, 8.0)
+    // Luz da TV 
     SpotLight* spotTVLight = new SpotLight(
         glm::vec3(0.8f, 0.8f, 1.0f),
         Point(5.8f, 1.6f, 8.0f, 1.0f),
@@ -1084,17 +1525,25 @@ int main(void)
         60.0f
     );
 
+    // Luz da mesa do PC
+    SpotLight* spotPCLight = new SpotLight(
+        glm::vec3(0.8f, 0.8f, 1.0f),
+        Point(5.4f, 2.0f, 1.1f, 1.0f),
+        glm::vec3(0.0f, -1.0f, 0.0f),
+        40.0f
+    );
+
     lights.push_back(spotTree);
     lights.push_back(spotSofa);
     lights.push_back(spotTVLight);
+	lights.push_back(spotPCLight);
 
-    // Luz da Janela - Transformado: (0.0, 0.2, 6.0)  (3.0, 1.7, 13.0)
-    PointLight* windowLight = new PointLight(
-        glm::vec3(0.1f, 0.1f, 0.1f),
-        Point(3.0f, 1.7f, 13.0f, 1.0f)
+    PointLight* pcLight = new PointLight(
+        glm::vec3(0.0f, 0.2f, 0.4f), 
+        Point(5.7f, 1.2f, 1.0f, 1.0f)
     );
 
-    lights.push_back(windowLight);
+    lights.push_back(pcLight);
 
     std::vector<Sphere*> ledSpheres;
 
@@ -1105,6 +1554,7 @@ int main(void)
     std::vector<Point> spotPositions = {
         Point(1.0f, 2.8f, 3.0f, 1.0f),
         Point(2.0f, 2.8f, 8.0f, 1.0f),
+        Point(5.4f, 2.8f, 1.1f, 1.0f)
     };
 
     for (const auto& pos : spotPositions) {
@@ -1154,7 +1604,7 @@ int main(void)
 
         glfwPollEvents();
 
-        float speed = 0.1f;
+        float speed = 0.4f;
         if (moveForward)  camera.moveForward(speed);
         if (moveBackward) camera.moveForward(-speed);
         if (moveLeft)     camera.moveRight(-speed);
@@ -1168,9 +1618,16 @@ int main(void)
         for (auto& obj : objects) {
             ObjectCache cache;
             cache.ptr = obj.get();
-            cache.box = obj->getAABB();
+            Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
+            if (meshPtr) {
+                cache.box = meshPtr->getWorldAABB();
+            }
+            else {
+                cache.box = obj->getAABB();
+            }
+
             cache.isPlane = (dynamic_cast<Plane*>(cache.ptr) != nullptr);
-            cache.isMesh = (dynamic_cast<Mesh*>(cache.ptr) != nullptr);
+            cache.isMesh = (meshPtr != nullptr);
             sceneCache.push_back(cache);
         }
 
@@ -1180,6 +1637,7 @@ int main(void)
                 lightOn = !lightOn;
                 spotSofa->intensity = lightOn ? glm::vec3(1.0f) : glm::vec3(0.0f);
                 spotTree->intensity = lightOn ? glm::vec3(1.0f) : glm::vec3(0.0f);
+				spotPCLight->intensity = lightOn ? glm::vec3(0.6f, 0.6f, 0.8f) : glm::vec3(0.0f);
 
                 glm::vec3 ledColor = lightOn ? glm::vec3(1.0f) : glm::vec3(0.05f);
                 for (Sphere* led : ledSpheres) {
@@ -1199,6 +1657,18 @@ int main(void)
                 else {
                     tvMeshPtr->loadTexture(RESOURCES_PATH "textures/fundo_preto.jpg");
                     spotTVLight->intensity = glm::vec3(0.0f);
+                }
+                cameraDirty = true;
+            }
+
+            if (clicked == monitorMeshPtr) {
+                monitorOn = !monitorOn;
+
+                if (monitorOn) {
+                    monitorMeshPtr->loadTexture(RESOURCES_PATH "textures/monitor.jpg");
+                }
+                else {
+                    monitorMeshPtr->loadTexture(RESOURCES_PATH "textures/fundo_preto.jpg");
                 }
                 cameraDirty = true;
             }

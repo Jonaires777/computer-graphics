@@ -192,11 +192,27 @@ glm::vec3 Cone::getNormal(const glm::vec3& Pi, const glm::vec3& viewDir) const
 
 AABB Cone::getAABB() const {
 	glm::vec3 posBase = glm::vec3(baseCenter.position);
-	glm::vec3 posApex = posBase + glm::vec3(direction) * height;
+	glm::vec3 dirNorm = glm::normalize(glm::vec3(direction)); // Garante que é unitário
+	glm::vec3 posApex = posBase + dirNorm * height;
 
 	AABB box;
-	
-	box.min = glm::min(posBase - glm::vec3(baseRadius), posApex);
-	box.max = glm::max(posBase + glm::vec3(baseRadius), posApex);
+	// Fórmula: raio * sqrt(1.0 - direção^2)
+	glm::vec3 extent;
+	extent.x = baseRadius * sqrt(1.0f - dirNorm.x * dirNorm.x);
+	extent.y = baseRadius * sqrt(1.0f - dirNorm.y * dirNorm.y);
+	extent.z = baseRadius * sqrt(1.0f - dirNorm.z * dirNorm.z);
+
+	// Caixa que envolve a Base Circular
+	glm::vec3 baseMin = posBase - extent;
+	glm::vec3 baseMax = posBase + extent;
+
+	// A caixa final é a união da "Caixa da Base" com o "Ponto do Topo"
+	box.min = glm::min(baseMin, posApex);
+	box.max = glm::max(baseMax, posApex);
+
+	// Margem de segurança (Epsilon) para evitar erros de precisão flutuante nas bordas
+	box.min -= 0.001f;
+	box.max += 0.001f;
+
 	return box;
 }
