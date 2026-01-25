@@ -18,7 +18,6 @@ add_subdirectory(thirdparty/stb_image)
 add_subdirectory(thirdparty/stb_truetype)
 add_subdirectory(thirdparty/glm)
 add_subdirectory(thirdparty/imgui-docking)
-add_subdirectory(thirdparty/eigen)
 add_subdirectory(thirdparty/tiny_obj_loader)
 
 # --- Coleta de Arquivos Fonte ---
@@ -48,7 +47,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
 
 # Linkagem de Bibliotecas
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE 
-    glm glfw glad stb_image stb_truetype imgui Eigen3::Eigen tiny_obj_loader
+    glm glfw glad stb_image stb_truetype imgui tiny_obj_loader
 )
 
 # Configurações específicas para Windows/MSVC
