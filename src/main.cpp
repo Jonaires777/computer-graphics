@@ -745,124 +745,88 @@ int main(void)
 
     // MESINHA DE CENTRO
     {
+        std::vector<Triangle> tableTris;
+
         float tableGlassRadius = 0.35f;
         float tableGlassHeight = 0.05f;
         float tableHeight = 0.4f;
         float legRadius = 0.025f;
 
-        // Posição central em frente ao sofá
         float tableX = 3.0f;
         float tableZ = 8.0f;
+        glm::vec3 center(tableX, tableHeight, tableZ);
 
-        // Tampo de vidro (Mesh circular)
-        std::vector<Triangle> glassTris;
+        // Cores
         glm::vec3 glassColor(2.5f);
+        glm::vec3 legColor(0.1f);
 
-        int segments = 32; // Número de segmentos do círculo
-        float centerY = tableHeight;
-
-        // Centro do disco
-        glm::vec3 center(tableX, centerY, tableZ);
-
-        // Criar o disco usando triângulos em forma de leque
+        int segments = 32;
         for (int i = 0; i < segments; ++i) {
             float angle1 = (float)i / segments * 2.0f * glm::pi<float>();
             float angle2 = (float)(i + 1) / segments * 2.0f * glm::pi<float>();
 
-            // Vértices na borda do círculo
-            glm::vec3 v1 = center + glm::vec3(
-                tableGlassRadius * cos(angle1),
-                0.0f,
-                tableGlassRadius * sin(angle1)
-            );
+            // Vértices na borda
+            glm::vec3 v1 = center + glm::vec3(tableGlassRadius * cos(angle1), 0.0f, tableGlassRadius * sin(angle1));
+            glm::vec3 v2 = center + glm::vec3(tableGlassRadius * cos(angle2), 0.0f, tableGlassRadius * sin(angle2));
 
-            glm::vec3 v2 = center + glm::vec3(
-                tableGlassRadius * cos(angle2),
-                0.0f,
-                tableGlassRadius * sin(angle2)
-            );
-
-            // UVs para mapear a textura circular
+            // UVs circulares
             glm::vec2 uvCenter(0.5f, 0.5f);
             glm::vec2 uv1(0.5f + 0.5f * cos(angle1), 0.5f + 0.5f * sin(angle1));
             glm::vec2 uv2(0.5f + 0.5f * cos(angle2), 0.5f + 0.5f * sin(angle2));
 
-            // Face superior
-            glassTris.push_back(Triangle(
-                Point(center.x, center.y, center.z),
-                Point(v1.x, v1.y, v1.z),
-                Point(v2.x, v2.y, v2.z),
-                uvCenter, uv1, uv2,
-                glassColor, glassColor, glassColor, 100.0f
-            ));
+            // Topo
+            tableTris.push_back(Triangle(Point(center.x, center.y, center.z), Point(v1.x, v1.y, v1.z), Point(v2.x, v2.y, v2.z), uvCenter, uv1, uv2, glassColor, glassColor, glassColor, 100.0f));
 
-            // Face inferior (opcional, para dar espessura)
-            glassTris.push_back(Triangle(
-                Point(center.x, centerY - tableGlassHeight, center.z),
-                Point(v2.x, v2.y - tableGlassHeight, v2.z),
-                Point(v1.x, v1.y - tableGlassHeight, v1.z),
-                uvCenter, uv2, uv1,
-                glassColor, glassColor, glassColor, 100.0f
-            ));
+            // Fundo
+            tableTris.push_back(Triangle(Point(center.x, center.y - tableGlassHeight, center.z), Point(v2.x, v2.y - tableGlassHeight, v2.z), Point(v1.x, v1.y - tableGlassHeight, v1.z), uvCenter, uv2, uv1, glassColor, glassColor, glassColor, 100.0f));
 
-            // Lateral (borda do disco)
-            glm::vec3 v1_bottom = v1 - glm::vec3(0, tableGlassHeight, 0);
-            glm::vec3 v2_bottom = v2 - glm::vec3(0, tableGlassHeight, 0);
+            // Lateral
+            glm::vec3 v1b = v1 - glm::vec3(0, tableGlassHeight, 0);
+            glm::vec3 v2b = v2 - glm::vec3(0, tableGlassHeight, 0);
+            float u1 = (float)i / segments; float u2 = (float)(i + 1) / segments;
 
-            float u1 = (float)i / segments;
-            float u2 = (float)(i + 1) / segments;
-
-            glassTris.push_back(Triangle(
-                Point(v1.x, v1.y, v1.z),
-                Point(v2.x, v2.y, v2.z),
-                Point(v2_bottom.x, v2_bottom.y, v2_bottom.z),
-                glm::vec2(u1, 0), glm::vec2(u2, 0), glm::vec2(u2, 1),
-                glassColor, glassColor, glassColor, 100.0f
-            ));
-
-            glassTris.push_back(Triangle(
-                Point(v1.x, v1.y, v1.z),
-                Point(v2_bottom.x, v2_bottom.y, v2_bottom.z),
-                Point(v1_bottom.x, v1_bottom.y, v1_bottom.z),
-                glm::vec2(u1, 0), glm::vec2(u2, 1), glm::vec2(u1, 1),
-                glassColor, glassColor, glassColor, 100.0f
-            ));
+            tableTris.push_back(Triangle(Point(v1.x, v1.y, v1.z), Point(v2.x, v2.y, v2.z), Point(v2b.x, v2b.y, v2b.z), glm::vec2(u1, 0), glm::vec2(u2, 0), glm::vec2(u2, 1), glassColor, glassColor, glassColor, 100.0f));
+            tableTris.push_back(Triangle(Point(v1.x, v1.y, v1.z), Point(v2b.x, v2b.y, v2b.z), Point(v1b.x, v1b.y, v1b.z), glm::vec2(u1, 0), glm::vec2(u2, 1), glm::vec2(u1, 1), glassColor, glassColor, glassColor, 100.0f));
         }
 
-        auto glassMesh = std::make_unique<Mesh>(glassTris);
-        glassMesh->loadTexture(RESOURCES_PATH "textures/vidro.jpg");
-        objects.push_back(std::move(glassMesh));
+        auto addTriangulatedCylinder = [&](glm::vec3 pos, float r, float h) {
+            int legSegs = 12; 
+            glm::vec2 noUV(0, 0);
 
-        // Pés da mesa (cilindros pretos)
-        glm::vec3 legColor(0.1f, 0.1f, 0.1f); // Preto
+            for (int i = 0; i < legSegs; i++) {
+                float a1 = (float)i / legSegs * 2.0f * glm::pi<float>();
+                float a2 = (float)(i + 1) / legSegs * 2.0f * glm::pi<float>();
+
+                float x1 = r * cos(a1); float z1 = r * sin(a1);
+                float x2 = r * cos(a2); float z2 = r * sin(a2);
+
+                glm::vec3 b1 = pos + glm::vec3(x1, 0.0f, z1);
+                glm::vec3 b2 = pos + glm::vec3(x2, 0.0f, z2);
+                glm::vec3 t1 = pos + glm::vec3(x1, h, z1);
+                glm::vec3 t2 = pos + glm::vec3(x2, h, z2);
+
+                tableTris.push_back(Triangle(Point(b1.x, b1.y, b1.z), Point(b2.x, b2.y, b2.z), Point(t1.x, t1.y, t1.z), noUV, noUV, noUV, legColor, legColor, legColor, 32.0f));
+                tableTris.push_back(Triangle(Point(b2.x, b2.y, b2.z), Point(t2.x, t2.y, t2.z), Point(t1.x, t1.y, t1.z), noUV, noUV, noUV, legColor, legColor, legColor, 32.0f));
+            }
+            };
+
         float legHeight = tableHeight - tableGlassHeight;
-        float legOffset = tableGlassRadius * 0.65f; // Distância do centro
+        float legOffset = tableGlassRadius * 0.65f;
 
-        // 4 pés nas extremidades
-        std::vector<glm::vec3> legPositions = {
-            {tableX + legOffset, 0.0f, tableZ + legOffset},  // Frente direita
-            {tableX - legOffset, 0.0f, tableZ + legOffset},  // Frente esquerda
-            {tableX + legOffset, 0.0f, tableZ - legOffset},  // Trás direita
-            {tableX - legOffset, 0.0f, tableZ - legOffset}   // Trás esquerda
-        };
+        addTriangulatedCylinder(glm::vec3(tableX + legOffset, 0.0f, tableZ + legOffset), legRadius, legHeight);
+        addTriangulatedCylinder(glm::vec3(tableX - legOffset, 0.0f, tableZ + legOffset), legRadius, legHeight);
+        addTriangulatedCylinder(glm::vec3(tableX + legOffset, 0.0f, tableZ - legOffset), legRadius, legHeight);
+        addTriangulatedCylinder(glm::vec3(tableX - legOffset, 0.0f, tableZ - legOffset), legRadius, legHeight);
 
-        for (const auto& pos : legPositions) {
-            objects.push_back(std::make_unique<Cilinder>(
-                Point(pos.x, pos.y, pos.z, 1.0f),
-                legRadius,
-                legHeight,
-                glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
-                true, true,
-                legColor,
-                legColor,
-                glm::vec3(0.3f), // Pouco brilho
-                10.0f,
-                legColor,
-                legColor,
-                glm::vec3(0.3f),
-                10.0f
-            ));
-        }
+        // --- CRIAÇÃO FINAL ---
+        auto tableMesh = std::make_unique<Mesh>(tableTris);
+        
+        tableMesh->loadTexture(RESOURCES_PATH "textures/vidro.jpg");
+
+        // Importante: Calcula a caixa que engloba vidro E pés
+        tableMesh->updateAABB();
+
+        objects.push_back(std::move(tableMesh));
     }
 
     // TV 
