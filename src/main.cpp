@@ -1596,10 +1596,12 @@ int main(void)
 
         std::vector<ObjectCache> sceneCache;
         sceneCache.reserve(objects.size());
+
         for (auto& obj : objects) {
             ObjectCache cache;
             cache.ptr = obj.get();
             Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
+
             if (meshPtr) {
                 cache.box = meshPtr->getWorldAABB();
             }
@@ -1609,7 +1611,10 @@ int main(void)
 
             cache.isPlane = (dynamic_cast<Plane*>(cache.ptr) != nullptr);
             cache.isMesh = (meshPtr != nullptr);
-            sceneCache.push_back(cache);
+
+            if (cache.isPlane || isAheadOfCamera(cache.box, camera)) {
+                sceneCache.push_back(cache);
+            }
         }
 
         if (triggerPick) {
@@ -1665,29 +1670,6 @@ int main(void)
             int nCol = MAX_WIDHT, nLin = MAX_HEIGHT;
 
             std::fill(framebuffer.begin(), framebuffer.end(), I_A);
-
-            std::vector<ObjectCache> sceneCache;
-            sceneCache.reserve(objects.size());
-
-            for (auto& obj : objects) {
-                ObjectCache cache;
-                cache.ptr = obj.get();
-                Mesh* meshPtr = dynamic_cast<Mesh*>(obj.get());
-
-                if (meshPtr) {
-                    cache.box = meshPtr->getWorldAABB();
-                }
-                else {
-                    cache.box = obj->getAABB();
-                }
-
-                cache.isPlane = (dynamic_cast<Plane*>(cache.ptr) != nullptr);
-                cache.isMesh = (meshPtr != nullptr);
-
-                if (cache.isPlane || isAheadOfCamera(cache.box, camera)) {
-                    sceneCache.push_back(cache);
-                }
-            }
 
             int tileSize = 32;
             std::vector<Tile> tiles;
