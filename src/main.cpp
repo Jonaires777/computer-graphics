@@ -440,23 +440,33 @@ int main(void)
         objects.push_back(std::move(wallMesh));
     }
 
-    // TETO SEM TEXTURA 
+    // TETO COM TEXTURA 
     {
         std::vector<Triangle> roofTris;
         float limitX = 3.0f;
         float limitZ = 7.0f;
-        float h = 3.0f;
+        float h = 2.9f;
 
-        Point p1(0.0f, h, 14.0f), p2(6.0f, h, 14.0f);
-        Point p3(6.0f, h, 0.0f), p4(0.0f, h, 0.0f);
+        Point p1(0.0f, h, 14.0f);
+        Point p2(6.0f, h, 14.0f);
+        Point p3(6.0f, h, 0.0f);
+        Point p4(0.0f, h, 0.0f);
 
-        glm::vec2 uv(0, 0);
-        glm::vec3 roofColor(0.933f);
+        float rfX = 2.0f;
+        float rfZ = 4.0f;
+        glm::vec2 uv1(0.0f, 0.0f);
+        glm::vec2 uv2(rfX, 0.0f);
+        glm::vec2 uv3(rfX, rfZ);
+        glm::vec2 uv4(0.0f, rfZ);
 
-        roofTris.push_back(Triangle(p1, p3, p2, uv, uv, uv, roofColor, roofColor, roofColor, 1.0f));
-        roofTris.push_back(Triangle(p1, p4, p3, uv, uv, uv, roofColor, roofColor, roofColor, 1.0f));
+        glm::vec3 white(1.0f);
 
-        objects.push_back(std::make_unique<Mesh>(roofTris));
+        roofTris.push_back(Triangle(p1, p3, p2, uv1, uv3, uv2, white, white, white, 32.0f));
+        roofTris.push_back(Triangle(p1, p4, p3, uv1, uv4, uv3, white, white, white, 32.0f));
+
+        auto roofMesh = std::make_unique<Mesh>(roofTris);
+        roofMesh->loadTexture(RESOURCES_PATH "textures/teto_2.jpg");
+        objects.push_back(std::move(roofMesh));
     }
 
     // ÁRVORE (TRONCO)
@@ -1021,35 +1031,6 @@ int main(void)
 
         auto books = std::make_unique<Mesh>(bookTris);
         objects.push_back(std::move(books));
-    }
-
-    // TETO COM TEXTURA 
-    {
-        std::vector<Triangle> roofTris;
-        float limitX = 3.0f;
-        float limitZ = 7.0f;
-        float h = 2.9f;
-
-        Point p1(0.0f, h, 14.0f);
-        Point p2(6.0f, h, 14.0f);
-        Point p3(6.0f, h, 0.0f);
-        Point p4(0.0f, h, 0.0f);
-
-        float rfX = 2.0f;
-        float rfZ = 4.0f;
-        glm::vec2 uv1(0.0f, 0.0f);
-        glm::vec2 uv2(rfX, 0.0f);
-        glm::vec2 uv3(rfX, rfZ);
-        glm::vec2 uv4(0.0f, rfZ);
-
-        glm::vec3 white(1.0f);
-
-        roofTris.push_back(Triangle(p1, p3, p2, uv1, uv3, uv2, white, white, white, 32.0f));
-        roofTris.push_back(Triangle(p1, p4, p3, uv1, uv4, uv3, white, white, white, 32.0f));
-
-        auto roofMesh = std::make_unique<Mesh>(roofTris);
-        roofMesh->loadTexture(RESOURCES_PATH "textures/teto_2.jpg");
-        objects.push_back(std::move(roofMesh));
     }
 
     // MESA 
