@@ -18,13 +18,16 @@ public:
     float yaw;  
     float pitch;
 
+	bool isOrtographic = false;
+
     Camera(
         const Point& pos,
         const glm::vec3& lookAt,
         const glm::vec3& upVec,
         float fovY,
         float aspect,
-        float nearDist
+        float nearDist,
+		bool isOrtographic
     );
 
     Ray generateRay(float px, float py) const;

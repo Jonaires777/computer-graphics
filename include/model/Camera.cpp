@@ -8,12 +8,14 @@ Camera::Camera(
     const glm::vec3& upVec,
     float fovY,
     float aspect,
-    float nearDist
+    float nearDist,
+	bool isOrtographic
 )
     : position(pos),
     fovY(fovY),
     aspect(aspect),
-    nearDist(nearDist)
+    nearDist(nearDist),
+	isOrtographic(isOrtographic)
 {
     forward = glm::normalize(lookAt - glm::vec3(pos.position));
     right = glm::normalize(glm::cross(forward, upVec));
@@ -29,18 +31,30 @@ Camera::Camera(
 
 Ray Camera::generateRay(float px, float py) const
 {
-    float h = 2.0f * nearDist * tan(fovY / 2.0f);
-    float w = h * aspect;
+    if (isOrtographic) {
+        float h = 7.0f;
+		float w = h * aspect;
+        glm::vec3 dir = forward;
+		glm::vec3 rayOrigin =
+			glm::vec3(position.position) +
+			right * (px * w * 0.5f) +
+			up * (py * h * 0.5f);
+        return Ray(Point(rayOrigin.x, rayOrigin.y, rayOrigin.z, 1.0f), glm::vec4(dir, 0.0f));
+    }
+    else {
+        float h = 2.0f * nearDist * tan(fovY / 2.0f);
+        float w = h * aspect;
 
-    glm::vec3 imagePoint =
-        glm::vec3(position.position) +
-        forward * nearDist +
-        right * (px * w * 0.5f) +
-        up * (py * h * 0.5f);
+        glm::vec3 imagePoint =
+            glm::vec3(position.position) +
+            forward * nearDist +
+            right * (px * w * 0.5f) +
+            up * (py * h * 0.5f);
 
-    glm::vec3 dir = glm::normalize(imagePoint - glm::vec3(position.position));
+        glm::vec3 dir = glm::normalize(imagePoint - glm::vec3(position.position));
 
-    return Ray(position, glm::vec4(dir, 0.0f));
+        return Ray(position, glm::vec4(dir, 0.0f));
+    }
 }
 
 void Camera::moveForward(float delta) {

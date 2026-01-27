@@ -308,7 +308,8 @@ int main(void)
         glm::vec3(0.0f, 1.0f, 0.0f),
         glm::radians(60.0f),
         float(MAX_WIDHT) / float(MAX_HEIGHT),
-        0.3f
+        0.3f,
+		false
     );
 
     glfwSetWindowUserPointer(window, &camera);
