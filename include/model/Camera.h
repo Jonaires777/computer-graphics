@@ -3,6 +3,12 @@
 #include "model/Ray.h"
 #include "model/Point.h"
 
+enum ProjectionType {
+    PROJ_PERSPECTIVE, 
+    PROJ_ORTHOGRAPHIC, 
+    PROJ_OBLIQUE       
+};
+
 class Camera {
 public:
     Point position;
@@ -19,6 +25,7 @@ public:
     float pitch;
 
 	bool isOrtographic = false;
+    ProjectionType currentProj = PROJ_PERSPECTIVE;
 
     Camera(
         const Point& pos,
@@ -27,7 +34,7 @@ public:
         float fovY,
         float aspect,
         float nearDist,
-		bool isOrtographic
+        bool isOrtographic
     );
 
     Ray generateRay(float px, float py) const;

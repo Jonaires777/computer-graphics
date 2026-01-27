@@ -54,6 +54,8 @@ extern "C"
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    Camera* camera = (Camera*)glfwGetWindowUserPointer(window);
+
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
         switch (key) {
@@ -61,6 +63,19 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         case GLFW_KEY_S: moveBackward = true; break;
         case GLFW_KEY_A: moveLeft = true; break;
         case GLFW_KEY_D: moveRight = true; break;
+        case GLFW_KEY_P:
+            if (camera->currentProj == PROJ_PERSPECTIVE) {
+                camera->currentProj = PROJ_ORTHOGRAPHIC;
+            }
+            else if (camera->currentProj == PROJ_ORTHOGRAPHIC) {
+                camera->currentProj = PROJ_OBLIQUE;
+            }
+            else {
+                camera->currentProj = PROJ_PERSPECTIVE;
+            }
+            cameraDirty = true; 
+            break;
+
         case GLFW_KEY_ESCAPE:
             glfwSetWindowShouldClose(window, GLFW_TRUE);
             break;
